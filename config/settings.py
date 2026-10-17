@@ -17,7 +17,12 @@ def env_list(name, default=""):
 
 
 DEBUG = env_bool("DEBUG", True)
-SECRET_KEY = os.environ.get("SECRET_KEY") or ("dev-only-change-me" if DEBUG else "")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY and Path("/app/data/secret_key").exists():
+    # Docker: entrypoint яратган калит (docker compose exec буйруқлари ҳам шуни ўқийди)
+    SECRET_KEY = Path("/app/data/secret_key").read_text().strip()
+if not SECRET_KEY and DEBUG:
+    SECRET_KEY = "dev-only-change-me"
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY берилмаган (DEBUG=false).")
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "*")  # ички тармоқ учун; хоҳласангиз IP билан чекланг
