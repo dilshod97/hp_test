@@ -206,7 +206,7 @@
       return;
     }
     leaving = true;
-    document.getElementById('next-form').submit();
+    HTMLFormElement.prototype.submit.call(document.getElementById('next-form'));
   }
 
   // ---------- Таймер ----------

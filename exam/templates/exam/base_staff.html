@@ -4,6 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Тест тизими{% endblock %} — Танлов тизими</title>
 <link rel="stylesheet" href="{% static 'exam/style.css' %}?v=6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231d4ed8'/%3E%3Cpath d='M16 8 4 14l12 6 12-6z' fill='white'/%3E%3C/svg%3E">
 {% block head %}{% endblock %}
 </head>
 <body>
@@ -73,7 +74,8 @@
     if (await ask(text, (btn && btn.classList.contains('danger')) || form.dataset.danger !== undefined)) {
       form.dataset.confirmed = '1';
       if (btn && btn.name) { const h = document.createElement('input'); h.type = 'hidden'; h.name = btn.name; h.value = btn.value; form.appendChild(h); }
-      form.submit();
+      // form.submit() эмас: формада name="submit" тугма бўлса, у функцияни яшириб қўяди
+      HTMLFormElement.prototype.submit.call(form);
     }
   });
 })();

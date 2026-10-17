@@ -711,3 +711,11 @@ class WebImportTests(Base):
     def test_experts_cannot_import(self):
         self.client.force_login(self.c1)
         self.assertEqual(self.client.get(reverse("bank_import")).status_code, 403)
+
+
+class ConfirmSubmitTests(Base):
+    def test_confirm_uses_prototype_submit(self):
+        # Баҳолаш формасида name="submit" тугма бор — form.submit() уни кўрмайди, прототип орқали юбориш шарт
+        self.client.force_login(self.author)
+        r = self.client.get(reverse("test_list"))
+        self.assertContains(r, "HTMLFormElement.prototype.submit.call(form)")
