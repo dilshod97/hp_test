@@ -254,7 +254,8 @@ def _interview_groups(section):
     intro = " ".join(section.intro)
     groups = []
     for m in GROUP_RE.finditer(intro):
-        lo, hi, label = int(m.group(2)), int(m.group(3)), m.group(4).strip().rstrip(",")
+        lo, hi = int(m.group(2)), int(m.group(3))
+        label = re.sub(r"\s+учун$", "", m.group(4).strip().rstrip(","))
         groups.append((label, range(lo, hi + 1)))
     return groups
 
