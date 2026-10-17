@@ -1,0 +1,101 @@
+{% extends "exam/candidate/base.html" %}
+{% load exam_tags %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card" style="max-width:560px">
+    <div class="logo">{% icon "id" "lg" %}</div>
+    <h1>Шахсни тасдиқлаш</h1>
+    <p class="lead">Тест бошланишидан олдин веб-камера орқали <b>бир марта</b> расмингиз олинади.</p>
+    <div class="alert info small" style="margin-bottom:16px">
+      Расм фақат шахсингизни тасдиқлаш учун олинади ва танлов комиссиясида сақланади. Уни текширувчи экспертлар кўрмайди.
+      Расм {{ retention_days }} кундан кейин автоматик ўчирилади.
+    </div>
+
+    <div id="cam-box" class="hidden" style="margin-bottom:16px">
+      <div style="position:relative;border-radius:12px;overflow:hidden;background:#0f172a;aspect-ratio:4/3">
+        <video id="video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)"></video>
+        <img id="shot" class="hidden" alt="Олинган расм" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+      </div>
+      <p class="muted small" style="margin:8px 0 0">Юзингиз рамканинг ўртасида ва яхши ёритилган бўлсин.</p>
+    </div>
+
+    <div id="msg" class="alert warn hidden"></div>
+
+    <div class="stack" id="step-consent">
+      <button type="button" class="btn lg block" id="btn-agree">{% icon "ok" %} Розиман, камерани ёқиш</button>
+      <button type="button" class="btn ghost block" id="btn-decline">Розимасман — расмсиз давом этиш</button>
+    </div>
+    <div class="stack hidden" id="step-capture">
+      <button type="button" class="btn lg block" id="btn-capture">Расмга тушиш</button>
+    </div>
+    <div class="row hidden" id="step-confirm" style="flex-wrap:nowrap">
+      <button type="button" class="btn secondary lg" id="btn-retake" style="flex:1">Қайта олиш</button>
+      <button type="button" class="btn success lg" id="btn-send" style="flex:2">Тасдиқлаш ва тестни бошлаш {% icon "right" %}</button>
+    </div>
+    <div class="stack hidden" id="step-skip">
+      <button type="button" class="btn lg block" id="btn-skip">Расмсиз давом этиш {% icon "right" %}</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const SAVE = "{% url 'exam_photo_save' %}", NEXT = "{% url 'exam_take' %}", CSRF = "{{ csrf_token }}";
+  const $ = id => document.getElementById(id);
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  let stream = null, dataUrl = null;
+
+  function steps(name) { ['step-consent', 'step-capture', 'step-confirm', 'step-skip'].forEach(s => show(s, s === name)); }
+  function message(text) { $('msg').textContent = text; show('msg', !!text); }
+
+  async function send(payload) {
+    document.querySelectorAll('button').forEach(b => b.disabled = true);
+    try {
+      const r = await fetch(SAVE, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+                                   body: JSON.stringify(payload), credentials: 'same-origin'});
+      if (r.ok) { if (stream) stream.getTracks().forEach(t => t.stop()); location.href = NEXT; return; }
+    } catch (e) {}
+    document.querySelectorAll('button').forEach(b => b.disabled = false);
+    message('Сақлаб бўлмади. Қайтадан уриниб кўринг ёки назоратчини чақиринг.');
+  }
+
+  function noCamera(status, text) {
+    message(text);
+    show('cam-box', false);
+    steps('step-skip');
+    $('btn-skip').onclick = () => send({status});
+  }
+
+  $('btn-decline').onclick = () => send({status: 'declined'});
+
+  $('btn-agree').onclick = async () => {
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return noCamera('no_camera', 'Бу компьютерда камера ишлатиб бўлмайди. Тест расмсиз давом этади.');
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({video: {width: 640, height: 480, facingMode: 'user'}, audio: false});
+    } catch (e) {
+      if (e && e.name === 'NotAllowedError') return noCamera('denied', 'Камерага рухсат берилмади. Тест расмсиз давом этади.');
+      return noCamera('no_camera', 'Камера топилмади. Тест расмсиз давом этади.');
+    }
+    $('video').srcObject = stream;
+    show('cam-box', true); message('');
+    steps('step-capture');
+  };
+
+  $('btn-capture').onclick = () => {
+    const v = $('video'), c = document.createElement('canvas');
+    c.width = v.videoWidth || 640; c.height = v.videoHeight || 480;
+    const ctx = c.getContext('2d');
+    ctx.translate(c.width, 0); ctx.scale(-1, 1);  // ойнадагидек
+    ctx.drawImage(v, 0, 0, c.width, c.height);
+    dataUrl = c.toDataURL('image/jpeg', 0.85);
+    $('shot').src = dataUrl; show('shot', true);
+    steps('step-confirm');
+  };
+  $('btn-retake').onclick = () => { show('shot', false); dataUrl = null; steps('step-capture'); };
+  $('btn-send').onclick = () => dataUrl && send({image: dataUrl});
+})();
+</script>
+{% endblock %}

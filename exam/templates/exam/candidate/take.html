@@ -1,0 +1,112 @@
+{% extends "exam/candidate/base.html" %}
+{% load static exam_tags %}
+{% block content %}
+<header class="exam-top">
+  <div class="inner">
+    <div style="min-width:0">
+      <div class="title">{{ attempt.test.title }}</div>
+      <div class="subtitle">{% if free %}{{ block_count }} та блок · исталган саволга қайтиш мумкин{% else %}{{ block_index }}-блок ({{ block_count }} тадан): {{ cur_block.title }}{% endif %}</div>
+    </div>
+    <div class="progress">
+      <div class="bar"><i id="progress-bar" style="width:0"></i></div>
+      <div class="lbl" id="progress-lbl">Жавоб берилди: 0 / {{ items|length }}</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="save-pill" id="save-status">{% icon "ok" %} Сақланди</div>
+    <div class="timer" id="timer-box">{% icon "clock" "lg" %}<div><div class="t" id="timer">--:--</div><div class="l">{% if free %}умумий вақт{% else %}блок вақти{% endif %}</div></div></div>
+  </div>
+</header>
+
+<div class="exam-layout">
+  <main>
+    {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+
+    {% if cur_block.description or block_index == 1 and attempt.test.description or free %}
+    <div class="instr" id="instr">
+      <h2>{% icon "info" %} Кўрсатма</h2>
+      {% if block_index == 1 and attempt.test.description %}<p>{{ attempt.test.description }}</p>{% endif %}
+      {% if free %}
+        <p>Барча саволлар очиқ: исталган саволга қайтиб, жавобингизни ўзгартиришингиз мумкин. Вақт умумий — ўзингиз тақсимланг.</p>
+        {% for b in shown_blocks %}{% if b.description %}<p><b>{{ b.title }}:</b> {{ b.description }}</p>{% endif %}{% endfor %}
+      {% elif cur_block.description %}<p>{{ cur_block.description }}</p>{% endif %}
+      <button type="button" class="btn secondary sm" id="instr-hide">Тушунарли</button>
+    </div>
+    {% endif %}
+
+    {% for item in items %}
+    <section class="q-card{% if not forloop.first %} hidden{% endif %}" data-index="{{ forloop.counter0 }}" data-question="{{ item.question.pk }}" data-type="{{ item.question.qtype }}">
+      <div class="q-num">
+        <span><span class="n">Савол {{ item.number }} / {{ items|length }}</span>{% if free %} <span class="block-tag">· {{ item.block.title }}</span>{% endif %}</span>
+        <button type="button" class="flag-btn" data-flag>{% icon "flag" %} <span>Кейин қайтиш учун белгилаш</span></button>
+      </div>
+      {% if item.question.qtype == 'text' and item.question.title %}<div class="q-title">{{ item.question.title }}</div>{% endif %}
+      <div class="q-body">{{ item.question.text|safe }}</div>
+      {% if item.question.qtype == 'choice' %}
+      <div class="answers" role="radiogroup">
+        {% for o in item.options %}
+        <label class="opt"><input type="radio" name="q{{ item.question.pk }}" value="{{ o.pk }}" {% if item.answer.selected_option_id == o.pk %}checked{% endif %}><span class="letter">{{ forloop.counter0|letter }}</span><span>{{ o.text }}</span></label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="editor-wrap"><textarea class="rich-answer" id="ans{{ item.question.pk }}">{{ item.answer.text_answer }}</textarea></div>
+      {% endif %}
+      <div class="q-foot">
+        <button type="button" class="btn secondary" data-prev {% if forloop.first %}disabled{% endif %}>{% icon "left" %} Олдинги</button>
+        <div class="spacer"></div>
+        {% if forloop.last %}
+        <button type="button" class="btn success" data-finish>{% if is_last_block %}Тестни якунлаш{% else %}Блокни якунлаш{% endif %} {% icon "ok" %}</button>
+        {% else %}
+        <button type="button" class="btn" data-next>Кейинги {% icon "right" %}</button>
+        {% endif %}
+      </div>
+    </section>
+    {% endfor %}
+  </main>
+
+  <aside class="side-panel">
+    <div class="panel">
+      <h3>Саволлар</h3>
+      <div id="qmap">
+        {% for sec in sections %}
+        {% if free and sections|length > 1 %}<div class="qmap-title">{{ sec.title }}</div>{% endif %}
+        <div class="qmap">{% for item in sec.items %}<button type="button" data-goto="{{ item.index }}" title="Савол {{ item.number }}">{{ item.number }}</button>{% endfor %}</div>
+        {% endfor %}
+      </div>
+      <div class="legend">
+        <span><i class="a"></i> Жавоб берилган</span>
+        <span><i></i> Жавоб берилмаган</span>
+        <span><i class="f"></i> Белгиланган</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Блоклар</h3>
+      <div class="blocks-list">
+        {% for b in blocks_state %}
+        <div class="b {{ b.state }}"><span class="s">{% if b.state == 'done' %}✓{% else %}{{ forloop.counter }}{% endif %}</span><span>{{ b.title }} <span class="muted">· {{ b.minutes }} дақ.</span></span></div>
+        {% endfor %}
+      </div>
+      <p class="muted small" style="margin:12px 0 0">{% if free %}Барча блоклар очиқ. «Тестни якунлаш» тугмаси бутун тестни топширади.{% else %}Кейинги блокка ўтгач, бу блокка қайтиб бўлмайди.{% endif %}</p>
+    </div>
+    <button type="button" class="btn success block lg" data-finish>{% if is_last_block %}Тестни якунлаш{% else %}Блокни якунлаш{% endif %}</button>
+  </aside>
+</div>
+
+<form method="post" action="{% url 'exam_next' %}" id="next-form" class="hidden">{% csrf_token %}
+  <input type="hidden" name="block_attempt" value="{{ block_attempt.pk }}">
+</form>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'tinymce/tinymce.min.js' %}"></script>
+<script src="{% static 'exam/editor.js' %}?v=5"></script>
+<script>
+  window.EXAM = {
+    secondsLeft: {{ seconds_left }},
+    saveUrl: "{% url 'exam_save' %}",
+    takeUrl: "{% url 'exam_take' %}",
+    csrf: "{{ csrf_token }}",
+    isLast: {{ is_last_block|yesno:"true,false" }},
+    key: "ba{{ block_attempt.pk }}",
+  };
+</script>
+<script src="{% static 'exam/take.js' %}?v=5"></script>
+{% endblock %}

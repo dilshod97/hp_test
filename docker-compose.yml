@@ -1,0 +1,38 @@
+# Ишга тушириш:  cp .env.example .env  →  .env ни тўлдиринг  →  docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hp_test}
+      POSTGRES_USER: ${POSTGRES_USER:-hp_test}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env da POSTGRES_PASSWORD ни ёзинг}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      retries: 20
+
+  web:
+    build: .
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-hp_test}
+      POSTGRES_USER: ${POSTGRES_USER:-hp_test}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PORT:-443}:8000"
+    volumes:
+      - ./certs:/app/certs        # ca.crt шу ерда пайдо бўлади — тест компьютерларига тарқатилади
+      - media:/app/media          # савол расмлари ва номзод расмлари
+      - appdata:/app/data         # махфий калит
+
+volumes:
+  pgdata:
+  media:
+  appdata:

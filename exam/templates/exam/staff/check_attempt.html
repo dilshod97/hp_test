@@ -1,0 +1,93 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}{{ attempt.code }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'check_list' %}">Текшириш</a> / <span class="mono">{{ attempt.code }}</span></div>
+<div class="page-head">
+  <div>
+    <h1>Номзод <span class="mono">{{ attempt.code }}</span></h1>
+    <div class="meta"><span>{{ attempt.test.title }}</span>
+      <span>{% if review.round == 3 %}Учинчи (ҳакам) текширув{% else %}Мустақил текширув{% endif %}</span>
+      {% if review.is_submitted %}<span class="badge graded">Топширилган</span>{% else %}<span class="badge finished">Баҳоланмоқда</span>{% endif %}</div>
+  </div>
+</div>
+
+<div class="alert info">Ҳар бир мезон: <b>0</b> — йўқ ёки мазмунан нотўғри · <b>1</b> — асосий фикр бор, аммо ҳисоб, далил ёки муҳим қадам етишмайди · <b>2</b> — натижа тўғри ва асосланган. Бошқа тўғри ечим ҳам қабул қилинади.</div>
+{% if review.is_submitted %}<div class="alert ok">Баҳолар {{ review.submitted_at|date:"d.m.Y H:i" }} да топширилган. Ўзгартириш учун суперадминга мурожаат қилинг.</div>{% endif %}
+
+<form method="post" id="grade-form">{% csrf_token %}
+<div class="grade-layout">
+  <nav class="task-nav card tight">
+    <div class="section-title" style="margin:4px 0 8px">Топшириқлар</div>
+    {% for row in rows %}<a href="#t{{ forloop.counter }}" data-task="{{ forloop.counter }}" class="{% if row.total is not None %}done{% endif %}"><span class="dot">{{ forloop.counter }}</span><span>{{ row.answer.question.title|default:"Савол"|truncatechars:34 }}</span></a>{% endfor %}
+  </nav>
+  <div>
+    {% for row in rows %}{% with a=row.answer %}
+    <div class="card task-card" id="t{{ forloop.counter }}" data-task-card="{{ forloop.counter }}">
+      <div class="row between top">
+        <h2 style="margin:0">{{ forloop.counter }}. {{ a.question.title|default:"Савол" }}</h2>
+        <span class="badge plain info" style="height:28px;font-size:14px"><span data-sum>{{ row.total|num }}</span>&nbsp;/ {{ a.question.max_score|num }}</span>
+      </div>
+      <details style="margin:10px 0"><summary class="muted small">Топшириқ шарти</summary><div class="qtext">{{ a.question.text|safe }}</div></details>
+      <div class="field-label" style="margin-top:12px">Номзод жавоби</div>
+      {% include "exam/staff/_answer.html" %}
+      <div class="field-label" style="margin-top:20px">Баҳолаш</div>
+      <div class="crit-list">
+        {% for c in row.criteria %}
+        <div class="crit">
+          <div class="text">{{ c.text }}</div>
+          {% if row.whole %}
+            <div><input type="number" step="0.5" min="0" max="{{ c.max|stringformat:'s' }}" name="s_{{ a.pk }}_{{ forloop.counter0 }}" value="{{ c.value|default_if_none:'' }}" style="width:100px" {% if review.is_submitted %}disabled{% endif %}> <span class="muted">/ {{ c.max|num }}</span></div>
+          {% else %}
+            <div class="seg">{% for v in c.choices %}<label><input type="radio" name="s_{{ a.pk }}_{{ forloop.parentloop.counter0 }}" value="{{ v }}" {% if c.value == v %}checked{% endif %} {% if review.is_submitted %}disabled{% endif %}><span class="{% if v == 0 %}v0{% endif %}">{{ v }}</span></label>{% endfor %}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="field" style="margin:16px 0 0"><label for="c_{{ a.pk }}">Баллнинг қисқа асоси</label>
+        <input type="text" id="c_{{ a.pk }}" name="c_{{ a.pk }}" value="{{ row.comment }}" placeholder="Жавобнинг қайси қисмига таяндингиз?" {% if review.is_submitted %}disabled{% endif %}></div>
+    </div>
+    {% endwith %}{% empty %}
+    <div class="card"><div class="empty">{% icon "inbox" %}<div>Қўлда баҳоланадиган жавоб йўқ</div></div></div>
+    {% endfor %}
+  </div>
+</div>
+{% if not review.is_submitted and rows %}
+<div class="sticky-bar">
+  <div class="total">Жами: <b id="grand">{{ total|num }}</b> <span class="muted">балл · баҳоланган мезонлар: <span id="filled">0</span> / <span id="all">0</span></span></div>
+  <div class="spacer"></div>
+  <button class="btn secondary" name="save" value="1">Қораламани сақлаш</button>
+  <button class="btn success" name="submit" value="1" data-confirm="Баҳоларни топширасизми? Шундан кейин ўзгартириб бўлмайди.">{% icon "ok" %} Якунлаш ва топшириш</button>
+</div>
+{% endif %}
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('grade-form');
+  function recalc() {
+    let grand = 0, filled = 0, all = 0;
+    document.querySelectorAll('[data-task-card]').forEach(card => {
+      let sum = 0, cnt = 0, n = 0;
+      card.querySelectorAll('.crit').forEach(row => {
+        n++;
+        const r = row.querySelector('input[type=radio]:checked');
+        const num = row.querySelector('input[type=number]');
+        const v = r ? parseFloat(r.value) : (num && num.value !== '' ? parseFloat(num.value) : null);
+        if (v !== null && !isNaN(v)) { sum += v; cnt++; }
+      });
+      all += n; filled += cnt; grand += sum;
+      card.querySelector('[data-sum]').textContent = cnt ? String(sum).replace('.', ',') : '—';
+      const link = document.querySelector('[data-task="' + card.dataset.taskCard + '"]');
+      if (link) link.classList.toggle('done', n > 0 && cnt === n);
+    });
+    const g = document.getElementById('grand');
+    if (g) { g.textContent = String(grand).replace('.', ','); document.getElementById('filled').textContent = filled; document.getElementById('all').textContent = all; }
+  }
+  form.addEventListener('change', recalc);
+  form.addEventListener('input', recalc);
+  recalc();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}Кўриб чиқиш{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'test_detail' test.pk %}">{{ test }}</a> /</div>
+<div class="page-head"><div><h1>Номзод кўриниши</h1><div class="sub">Номзод саволларни шундай кўради (калит ва мезонларсиз).</div></div></div>
+{% if test.description %}<div class="instr"><p style="margin:0">{{ test.description }}</p></div>{% endif %}
+{% for b in blocks %}
+<div class="section-title">{{ forloop.counter }}-блок: {{ b.title }} · {{ b.duration_minutes }} дақиқа</div>
+{% for q in b.questions.all %}
+<div class="q-card" style="min-height:0;margin-bottom:16px">
+  <div class="q-num"><span class="n">Савол {{ forloop.counter }} / {{ b.questions.all|length }}</span></div>
+  {% if q.qtype == 'text' and q.title %}<div class="q-title">{{ q.title }}</div>{% endif %}
+  <div class="q-body">{{ q.text|safe }}</div>
+  {% if q.qtype == 'choice' %}
+  <div class="answers">{% for o in q.options.all %}<label class="opt"><input type="radio" name="q{{ q.pk }}"><span class="letter">{{ forloop.counter0|letter }}</span><span>{{ o.text }}</span></label>{% endfor %}</div>
+  {% else %}<div class="answer-box muted">Бу ерда номзод матн муҳарририда жавоб ёзади.</div>{% endif %}
+</div>
+{% endfor %}
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "exam/base_staff.html" %}
+{% load static %}
+{% block title %}Савол{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url back_url back_obj.pk %}">{{ back_obj }}</a>{% if place != back_obj %} / {{ place }}{% endif %} /</div>
+<div class="page-head"><div><h1>{% if form.instance.pk %}Саволни таҳрирлаш{% else %}Янги савол{% endif %}</h1></div></div>
+<div class="card" style="max-width:900px">
+  <form method="post" id="qform">{% csrf_token %}
+    {% include "exam/_fields.html" %}
+    <div class="form-actions">
+      <button class="btn">Сақлаш</button>
+      {% if not form.instance.pk %}<button class="btn secondary" name="add_another" value="1">Сақлаш ва яна қўшиш</button>{% endif %}
+      <a class="btn ghost" href="{% url back_url back_obj.pk %}">Бекор қилиш</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'tinymce/tinymce.min.js' %}"></script>
+<script src="{% static 'exam/editor.js' %}?v=5"></script>
+<script>
+  initEditor('textarea.rich', {}, 'author');
+  const qtype = document.getElementById('id_qtype');
+  const choiceOnly = ['id_options_text', 'id_correct_number'].map(id => document.getElementById(id).closest('.field'));
+  function toggle() { choiceOnly.forEach(f => f.style.display = qtype.value === 'choice' ? '' : 'none'); }
+  qtype.addEventListener('change', toggle); toggle();
+</script>
+{% endblock %}

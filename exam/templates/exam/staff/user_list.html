@@ -1,0 +1,21 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}Фойдаланувчилар{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Фойдаланувчилар</h1><div class="sub">Суперадмин, тест тузувчи ва экспертлар</div></div>
+  <div class="actions"><a class="btn" href="{% url 'user_create' %}">{% icon "plus" %} Янги фойдаланувчи</a></div></div>
+<div class="card flush"><div class="table-wrap"><table>
+  <thead><tr><th>Ф.И.</th><th>Логин</th><th>Рол</th><th>Ҳолат</th><th class="num">Кутилаётган текширув</th></tr></thead>
+  <tbody>
+  {% for u in users %}
+  <tr onclick="location.href='{% url 'user_edit' u.pk %}'" style="cursor:pointer">
+    <td><a class="table-link" href="{% url 'user_edit' u.pk %}">{{ u.get_full_name|default:"—" }}</a></td>
+    <td class="mono">{{ u.username }}</td>
+    <td>{{ u.get_role_display }}</td>
+    <td>{% if u.is_active %}<span class="badge on">Фаол</span>{% else %}<span class="badge off">Блокланган</span>{% endif %}</td>
+    <td class="num">{% if u.role == 'checker' %}{{ u.pending }}{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

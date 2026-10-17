@@ -1,0 +1,51 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}Номзодлар{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Номзодлар</h1><div class="sub">Фақат шу рўйхатдаги номзодлар тестни бошлай олади. Номзод Ф.И.Ш. ва туғилган санасини ёзади — тизим унинг тестини ўзи топади.</div></div>
+  <div class="actions">
+    <button class="btn secondary" type="button" onclick="document.getElementById('import').classList.toggle('hidden')">{% icon "upload" %} Excel'дан юклаш</button>
+    <button class="btn" type="button" onclick="document.getElementById('add').classList.toggle('hidden')">{% icon "plus" %} Номзод қўшиш</button>
+  </div>
+</div>
+
+<div class="card hidden" id="add">
+  <h2>Номзод қўшиш</h2>
+  <form method="post" action="{% url 'candidate_add' %}">{% csrf_token %}
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px">{% include "exam/_fields.html" with form=form %}</div>
+    <button class="btn">Қўшиш</button>
+  </form>
+</div>
+<div class="card hidden" id="import">
+  <h2>Excel'дан юклаш</h2>
+  <form method="post" action="{% url 'candidate_import' %}" enctype="multipart/form-data">{% csrf_token %}
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px">{% include "exam/_fields.html" with form=import_form %}</div>
+    <div class="form-actions"><button class="btn">{% icon "upload" %} Юклаш</button><a class="btn ghost" href="{% url 'candidate_template' %}">{% icon "download" %} Намуна файл</a></div>
+  </form>
+</div>
+
+<div class="card flush">
+  <form class="toolbar" method="get">
+    <select name="test" onchange="this.form.submit()"><option value="">Барча тестлар</option>
+      {% for t in tests %}<option value="{{ t.pk }}" {% if params.test == t.pk|stringformat:'s' %}selected{% endif %}>{{ t.title }}</option>{% endfor %}</select>
+    <input class="search" type="text" name="q" placeholder="Фамилия ёки исм бўйича қидириш" value="{{ params.q }}">
+    <button class="btn secondary">{% icon "search" %} Қидириш</button>
+  </form>
+  <div class="table-wrap"><table>
+    <thead><tr><th>№</th><th>Ф.И.Ш.</th><th>Туғилган сана</th><th>Тест</th><th>Ҳолат</th><th></th></tr></thead>
+    <tbody>
+    {% for row in rows %}{% with x=row.x %}
+    <tr>
+      <td class="muted">{{ forloop.counter }}</td>
+      <td><b>{{ x.candidate.full_name }}</b></td>
+      <td>{{ x.candidate.birth_date|date:"d.m.Y" }}</td>
+      <td class="small">{{ x.test.title }}{% if not x.test.is_active %} <span class="badge off">нофаол</span>{% endif %}</td>
+      <td>{% if row.attempt %}<a href="{% url 'result_detail' row.attempt.pk %}"><span class="badge {{ row.attempt.status }}">{{ row.attempt.get_status_display }}</span></a>{% else %}<span class="badge plain">Бошламаган</span>{% endif %}</td>
+      <td class="num">{% if not row.attempt %}<form method="post" action="{% url 'assignment_delete' x.pk %}" class="inline" data-danger data-confirm="{{ x.candidate.full_name }} рўйхатдан ўчирилсинми?">{% csrf_token %}<button class="btn ghost sm icon" title="Рўйхатдан ўчириш">{% icon "trash" %}</button></form>{% endif %}</td>
+    </tr>
+    {% endwith %}{% empty %}<tr><td colspan="6"><div class="empty">{% icon "id" %}<div>Рўйхат бўш. «Номзод қўшиш» ёки «Excel'дан юклаш» ни босинг.</div></div></td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% load static exam_tags %}<!doctype html>
+<html lang="uz-Cyrl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Тест тизими{% endblock %} — Танлов тизими</title>
+<link rel="stylesheet" href="{% static 'exam/style.css' %}?v=6">
+{% block head %}{% endblock %}
+</head>
+<body>
+{% if user.is_authenticated %}
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">{% icon "cap" %}</div><div>Танлов тизими<small>Номзодларни баҳолаш</small></div></div>
+    <nav class="nav">
+      {% with u=request.resolver_match.url_name %}
+      {% if user.is_superadmin %}
+        <a href="{% url 'results' %}" class="{% if u == 'results' or u == 'result_detail' %}active{% endif %}">{% icon "chart" %} Натижалар</a>
+        <a href="{% url 'candidate_list' %}" class="{% if 'candidate' in u %}active{% endif %}">{% icon "id" %} Номзодлар</a>
+      {% endif %}
+      {% if user.is_author %}
+        <a href="{% url 'test_list' %}" class="{% if 'test' in u or 'block' in u or u == 'question_create' %}active{% endif %}">{% icon "file" %} Тестлар</a>
+        <a href="{% url 'bank_list' %}" class="{% if 'bank' in u and 'block' not in u %}active{% endif %}">{% icon "db" %} Саволлар базаси</a>
+      {% endif %}
+      {% if user.is_checker %}
+        <a href="{% url 'check_list' %}" class="{% if 'check' in u %}active{% endif %}">{% icon "check" %} Текшириш</a>
+      {% endif %}
+      {% if user.is_superadmin %}
+        <a href="{% url 'user_list' %}" class="{% if 'user' in u %}active{% endif %}">{% icon "users" %} Фойдаланувчилар</a>
+      {% endif %}
+      {% endwith %}
+    </nav>
+    <div class="side-user">
+      <div class="name">{{ user.get_full_name|default:user.username }}</div>
+      <div class="role">{{ user.get_role_display }}</div>
+      <form method="post" action="{% url 'staff_logout' %}">{% csrf_token %}<button>{% icon "logout" %} Чиқиш</button></form>
+    </div>
+  </aside>
+  <div class="content"><div class="page">
+    {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+    {% block content %}{% endblock %}
+  </div></div>
+</div>
+{% else %}
+<div class="auth-wrap">{% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}{% block auth %}{% endblock %}</div>
+{% endif %}
+{% block scripts %}{% endblock %}
+<script>
+// Тасдиқлаш учун чиройли ойна: <form data-confirm="Матн"> ёки <button data-confirm="...">
+(function () {
+  function ask(text, danger) {
+    return new Promise(resolve => {
+      const back = document.createElement('div');
+      back.className = 'modal-back';
+      back.innerHTML = '<div class="modal" role="dialog"><h2>Тасдиқланг</h2><p></p><div class="actions">' +
+        '<button type="button" class="btn secondary" data-a="0">Бекор қилиш</button>' +
+        '<button type="button" class="btn ' + (danger ? 'danger-solid' : '') + '" data-a="1">Ҳа, давом этиш</button></div></div>';
+      back.querySelector('p').textContent = text;
+      document.body.appendChild(back);
+      back.querySelector('[data-a="1"]').focus();
+      back.addEventListener('click', e => {
+        const a = e.target.closest('[data-a]');
+        if (e.target === back || a) { back.remove(); resolve(a && a.dataset.a === '1'); }
+      });
+    });
+  }
+  window.askConfirm = ask;
+  document.addEventListener('submit', async e => {
+    const form = e.target;
+    const btn = e.submitter;
+    const text = (btn && btn.dataset.confirm) || form.dataset.confirm;
+    if (!text || form.dataset.confirmed) return;
+    e.preventDefault();
+    if (await ask(text, (btn && btn.classList.contains('danger')) || form.dataset.danger !== undefined)) {
+      form.dataset.confirmed = '1';
+      if (btn && btn.name) { const h = document.createElement('input'); h.type = 'hidden'; h.name = btn.name; h.value = btn.value; form.appendChild(h); }
+      form.submit();
+    }
+  });
+})();
+</script>
+<script>
+// Браузернинг рус тилидаги кичик огоҳлантиришлари ўрнига сервер хатолари (кириллчада) кўрсатилади
+document.querySelectorAll('form').forEach(f => f.noValidate = true);
+const firstErr = document.querySelector('.has-error input, .has-error select, .has-error textarea');
+if (firstErr) firstErr.focus();
+</script>
+</body>
+</html>

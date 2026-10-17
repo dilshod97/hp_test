@@ -1,0 +1,11 @@
+{% load exam_tags %}
+<div class="qtext">{{ q.text|safe }}</div>
+{% if q.qtype == 'choice' %}
+<div class="options-preview">{% for o in q.options.all %}<div{% if o.pk == q.correct_option_id %} class="correct"{% endif %}>{{ forloop.counter0|letter }}) {{ o.text }}{% if o.pk == q.correct_option_id %} <span class="badge on">тўғри</span>{% endif %}</div>{% endfor %}</div>
+{% endif %}
+{% with crit=q.criteria.all %}{% if crit %}
+<details class="criteria"><summary>Баҳолаш мезонлари ({{ crit|length }})</summary>
+  <ul>{% for c in crit %}<li>{{ c.text }} <span class="muted">— {{ c.max_score }} балл</span></li>{% endfor %}</ul>
+</details>
+{% endif %}{% endwith %}
+{% if q.explanation %}<div class="muted"><b>Изоҳ:</b> {{ q.explanation }}</div>{% endif %}

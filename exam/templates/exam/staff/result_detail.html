@@ -1,0 +1,173 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}{{ attempt.candidate }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'results' %}">Натижалар</a> / <span>{{ attempt.candidate.full_name }}</span></div>
+<div class="page-head">
+  <div class="row top" style="gap:20px;flex-wrap:nowrap">
+    {% if attempt.photo %}<a href="{% url 'result_photo' attempt.pk %}" target="_blank" title="Шахсни тасдиқлаш расми"><img src="{% url 'result_photo' attempt.pk %}" alt="Номзод расми" class="cand-photo"></a>
+    {% else %}<div class="cand-photo none" title="{{ attempt.get_photo_status_display }}">{% icon "id" "lg" %}<span>{% if attempt.photo_status %}{{ attempt.get_photo_status_display }}{% else %}Расм йўқ{% endif %}</span></div>{% endif %}
+  <div>
+    <h1>{{ attempt.candidate.full_name }}</h1>
+    <div class="meta">
+      <span><span class="badge {{ attempt.status }}">{{ attempt.get_status_display }}</span></span>
+      <span>Туғилган сана: <b>{{ attempt.candidate.birth_date|date:"d.m.Y" }}</b></span>
+      <span>Аноним код: <b class="mono">{{ attempt.code }}</b></span>
+      <span>Тест: <b>{{ attempt.test.title }}</b></span>
+    </div>
+  </div>
+  </div>
+  <div class="actions">
+    {% if attempt.status == 'in_progress' %}
+    <form method="post" action="{% url 'result_action' attempt.pk %}" class="row" style="gap:6px">{% csrf_token %}
+      <input type="hidden" name="action" value="extend">
+      <input class="input-sm" type="number" name="minutes" value="10" min="1" max="120" style="width:72px">
+      <button class="btn secondary sm">{% icon "clock" %} Вақт қўшиш</button>
+    </form>
+    <form method="post" action="{% url 'result_action' attempt.pk %}" data-confirm="Тестни ҳозир якунлайсизми? Номзод бошқа жавоб ёза олмайди.">{% csrf_token %}
+      <input type="hidden" name="action" value="finish"><button class="btn secondary sm">Мажбуран якунлаш</button></form>
+    {% endif %}
+    <form method="post" action="{% url 'result_action' attempt.pk %}" data-danger data-confirm="Барча жавоблар ва баҳолар ўчади, номзод тестни қайтадан бошлай олади. Давом этасизми?">{% csrf_token %}
+      <input type="hidden" name="action" value="delete"><button class="btn danger sm">{% icon "trash" %} Қайта топширишга рухсат</button></form>
+  </div>
+</div>
+
+<div class="grid cols-4" style="margin-bottom:24px">
+  {% if summary.logic %}<div class="stat"><div class="label">Мантиқий тест</div><div class="value">{{ summary.logic.score|num }}<span class="muted" style="font-size:16px"> / {{ summary.logic.max|num }}</span></div><div class="sub">{{ summary.logic_band|default:"—" }}</div></div>{% endif %}
+  {% if summary.practical %}<div class="stat"><div class="label">Ёзма амалий</div><div class="value">{{ summary.practical.score|num }}<span class="muted" style="font-size:16px"> / {{ summary.practical.max|num }}</span></div><div class="sub">{% if attempt.status == 'finished' %}оралиқ натижа{% else %}экспертлар баҳоси{% endif %}</div></div>{% endif %}
+  {% if summary.interview %}<div class="stat"><div class="label">Суҳбат</div><div class="value">{{ summary.interview.score|num }}<span class="muted" style="font-size:16px"> / {{ summary.interview.max|num }}</span></div><div class="sub">комиссия</div></div>{% endif %}
+  <div class="stat"><div class="label">Ҳимоя</div><div class="value">{{ summary.defense|num }}<span class="muted" style="font-size:16px"> / {{ summary.defense_max|num }}</span></div><div class="sub">комиссия</div></div>
+  <div class="stat accent"><div class="label">Якуний балл</div><div class="value">{{ summary.final|num }}<span class="muted" style="font-size:16px"> / 100</span></div><div class="sub">{% if summary.final is None %}ҳозирча {{ summary.partial|num }} — ҳамма қисм киритилмаган{% else %}барча қисмлар ҳисобланди{% endif %}</div></div>
+</div>
+
+<div class="grid two-col">
+<div>
+  {% regroup rows by answer.question.block as blocks %}
+  {% for group in blocks %}
+  <div class="card flush block-card">
+    <div class="card-head"><h2><span class="block-num">{{ forloop.counter }}</span>{{ group.grouper.title }}</h2><span class="muted small">{{ group.grouper.get_kind_display }}</span></div>
+    {% if group.grouper.kind == 'logic' %}
+    <div class="table-wrap"><table class="score-table">
+      <thead><tr><th>№</th><th>Савол</th><th class="num">Жавоб</th><th class="num">Калит</th><th class="num">Балл</th></tr></thead>
+      <tbody>
+      {% for row in group.list %}{% with a=row.answer %}
+      <tr>
+        <td class="muted">{{ forloop.counter }}</td>
+        <td class="small"><details><summary>{{ a.question.text|striptags|truncatechars:70 }}</summary>{% with show_key=True %}{% include "exam/staff/_answer.html" %}{% endwith %}{% if a.question.explanation %}<div class="muted small">{{ a.question.explanation }}</div>{% endif %}</details></td>
+        <td class="num"><b>{{ row.chosen|default:"—" }}</b></td>
+        <td class="num muted">{{ row.key }}</td>
+        <td class="num">{% if a.score and a.score > 0 %}<span class="badge plain ok">✓ {{ a.score|num }}</span>{% else %}<span class="badge plain off">0</span>{% endif %}</td>
+      </tr>
+      {% endwith %}{% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+    <div class="card-body">
+    {% for row in group.list %}{% with a=row.answer %}
+    <div class="q-item">
+      <div class="q-head">
+        <div><div class="q-title">{{ forloop.counter }}. {{ a.question.title|default:"Савол" }}</div>
+          <div class="q-meta">макс. {{ a.question.max_score|num }} балл{% if a.question.is_auto %} · калит бўйича автоматик{% endif %}</div></div>
+        <span class="badge plain {% if a.score is None %}warn{% elif a.score == a.question.max_score %}ok{% elif a.score == 0 %}off{% else %}info{% endif %}" style="font-size:14px;height:28px">{{ a.score|num }} балл</span>
+      </div>
+      {% if a.question.is_auto %}
+        <details style="margin-top:6px"><summary class="muted small">Савол ва жавоб</summary>
+          <div class="qtext">{{ a.question.text|safe }}</div>
+          {% with show_key=True %}{% include "exam/staff/_answer.html" %}{% endwith %}
+          {% if a.question.explanation %}<div class="muted small">{{ a.question.explanation }}</div>{% endif %}
+        </details>
+      {% else %}
+        <details style="margin-top:6px"><summary class="muted small">Топшириқ шарти</summary><div class="qtext">{{ a.question.text|safe }}</div></details>
+        {% include "exam/staff/_answer.html" %}
+        {% if a.auto_graded %}<div class="muted small">Жавоб берилмаган — автоматик 0.</div>
+        {% elif reviews %}
+        <div class="crit-list"><table class="score-table">
+          <thead><tr><th>Мезон</th>{% for r in reviews %}<th class="num">Эксп. {{ forloop.counter }}</th>{% endfor %}</tr></thead>
+          <tbody>
+          {% for c in row.criteria %}
+          <tr><td class="small">{{ c.text }} <span class="muted">({{ c.max|num }})</span></td>{% for v in c.values %}<td class="num">{{ v|num }}</td>{% endfor %}</tr>
+          {% endfor %}
+          <tr><td><b>Жами</b></td>{% for pr in row.per_review %}<td class="num"><b>{{ pr.item.total|num }}</b></td>{% endfor %}</tr>
+          {% if row.per_review %}<tr><td class="muted small">Асос</td>{% for pr in row.per_review %}<td class="muted small">{{ pr.item.comment }}</td>{% endfor %}</tr>{% endif %}
+          </tbody>
+        </table></div>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endwith %}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% if attempt.status != 'in_progress' %}
+  <div class="card flush">
+    <div class="card-head"><h2>Суҳбат ва ҳимоя</h2><span class="muted small">комиссия киритади</span></div>
+    <form method="post" action="{% url 'result_action' attempt.pk %}" class="card-body">{% csrf_token %}
+      <input type="hidden" name="action" value="interview">
+      {% for item in interview %}
+      <div style="margin-bottom:16px">
+        <div style="font-weight:600;font-size:14px">{{ forloop.counter }}. {{ item.q.title }}</div>
+        <details><summary class="muted small">Савол</summary><div class="qtext small">{{ item.q.text|safe }}</div></details>
+        {% for c in item.criteria %}
+        <div class="crit" style="padding:8px 0;border-top:1px solid var(--border)">
+          <div class="text small">{{ c.c.text }}</div>
+          <div class="seg">{% for v in c.choices %}<label><input type="radio" name="iv_{{ item.q.pk }}_{{ c.i }}" value="{{ v }}" {% if c.value == v %}checked{% endif %}><span class="{% if v == 0 %}v0{% endif %}" style="min-width:34px;height:30px;font-size:13px">{{ v }}</span></label>{% endfor %}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% empty %}<p class="muted">Тестга суҳбат саволлари танланмаган.</p>{% endfor %}
+      <div class="field"><label>Суҳбат изоҳи</label><textarea name="interview_comment" rows="2">{{ attempt.interview_comment }}</textarea></div>
+      <div class="field"><label>Амалий иш ҳимояси (0–{{ attempt.test.weight_defense|num }})</label>
+        <input type="text" name="defense_score" value="{{ attempt.defense_score|default_if_none:''|stringformat:'s' }}" style="max-width:140px"></div>
+      <button class="btn block">Сақлаш</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<div>
+  {% if attempt.status != 'in_progress' %}
+  <div class="card flush">
+    <div class="card-head"><h2>{% icon "users" %} Экспертлар</h2></div>
+    <div class="card-body">
+      {% if attempt.third_review_needed %}<div class="alert warn">⚖ Учинчи текширув: {{ attempt.third_review_reason }}. Ҳар мезон бўйича уч баҳо медианаси олинади.</div>{% endif %}
+      {% for r in reviews %}
+      <div class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div><div style="font-weight:600">{{ forloop.counter }}. {{ r.checker.get_full_name|default:r.checker.username }}{% if r.round == 3 %} <span class="muted small">(ҳакам)</span>{% endif %}</div>
+          {% if r.is_submitted %}<span class="badge graded">Топширди {{ r.submitted_at|date:"d.m H:i" }}</span>{% else %}<span class="badge finished">Кутилмоқда</span>{% endif %}</div>
+        <form method="post" action="{% url 'result_action' attempt.pk %}" class="inline">{% csrf_token %}
+          <input type="hidden" name="review" value="{{ r.pk }}">
+          {% if r.is_submitted %}<button class="btn ghost sm" name="action" value="reopen_review" title="Эксперт баҳони ўзгартира олади">Қайта очиш</button>
+          {% else %}<button class="btn ghost sm icon" name="action" value="delete_review" data-confirm="Бу экспертни олиб ташлайсизми?" title="Олиб ташлаш">{% icon "trash" %}</button>{% endif %}
+        </form>
+      </div>
+      {% empty %}<p class="muted">Эксперт бириктирилмаган.</p>{% endfor %}
+      {% if free_checkers %}
+      <form method="post" action="{% url 'result_action' attempt.pk %}" class="row" style="margin-top:14px;flex-wrap:nowrap">{% csrf_token %}
+        <input type="hidden" name="action" value="add_review">
+        <select name="checker" class="input-sm">{% for c in free_checkers %}<option value="{{ c.pk }}">{{ c.get_full_name|default:c.username }}</option>{% endfor %}</select>
+        <button class="btn secondary sm">{% icon "plus" %} Қўшиш</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% endif %}
+
+  <div class="card flush">
+    <div class="card-head"><h2>{% icon "clock" %} Вақт</h2></div>
+    <div class="card-body small">
+      <div class="row between"><span class="muted">Бошлаган</span><b>{{ attempt.started_at|date:"d.m.Y H:i" }}</b></div>
+      {% if attempt.finished_at %}<div class="row between"><span class="muted">Топширган</span><b>{{ attempt.finished_at|date:"d.m.Y H:i" }}</b></div>{% endif %}
+      <div class="row between"><span class="muted">IP манзил</span><b>{{ attempt.ip_address|default:"—" }}</b></div>
+      {% for ba in block_attempts %}
+      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">
+        <b>{{ ba.block.title }}</b>
+        <div class="muted">{{ ba.started_at|date:"H:i"|default:"—" }} → {{ ba.finished_at|date:"H:i"|default:"—" }} · {{ ba.block.duration_minutes }} дақ.{% if ba.extra_minutes %} + {{ ba.extra_minutes }}{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

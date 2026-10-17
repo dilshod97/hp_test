@@ -1,0 +1,39 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}{{ bank }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'bank_list' %}">Саволлар базаси</a> /</div>
+<div class="page-head">
+  <div><h1>{{ bank.name }}</h1><div class="meta"><span>{{ bank.get_kind_display }}</span><span><b>{{ questions|length }}</b> та савол</span></div></div>
+  <div class="actions">
+    <a class="btn" href="{% url 'bank_question_create' bank.pk %}">{% icon "plus" %} Савол қўшиш</a>
+    <a class="btn secondary" href="{% url 'bank_edit' bank.pk %}">{% icon "edit" %} Таҳрирлаш</a>
+  </div>
+</div>
+{% if bank.description %}<div class="alert info">{{ bank.description }}</div>{% endif %}
+<div class="card flush">
+  <div class="toolbar"><input class="search" type="text" id="filter" placeholder="Савол матни ёки сарлавҳа бўйича қидириш…"></div>
+  <div class="card-body">
+  {% for q in questions %}
+  <div class="q-item" data-search="{{ q.title|lower }} {{ q.text|striptags|lower }}">
+    <div class="q-head">
+      <div><div class="q-title">{{ forloop.counter }}. {{ q.title|default:"Савол" }}</div><div class="q-meta">{{ q.get_qtype_display }} · {{ q.max_score|num }} балл{% if q.is_auto %} · калит бор{% endif %}</div></div>
+      <div class="row" style="gap:4px">
+        <a class="btn ghost sm icon" href="{% url 'question_edit' q.pk %}" title="Таҳрирлаш">{% icon "edit" %}</a>
+        <form method="post" action="{% url 'question_delete' q.pk %}" class="inline" data-danger data-confirm="Саволни базадан ўчирасизми?">{% csrf_token %}<button class="btn ghost sm icon" title="Ўчириш">{% icon "trash" %}</button></form>
+      </div>
+    </div>
+    <details style="margin-top:6px"><summary class="muted small">Матн, вариантлар ва мезонлар</summary>{% include "exam/staff/_question.html" %}</details>
+  </div>
+  {% empty %}<div class="empty">{% icon "inbox" %}<div>Бу бўлимда савол йўқ</div></div>{% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('filter').addEventListener('input', e => {
+  const v = e.target.value.toLowerCase().trim();
+  document.querySelectorAll('[data-search]').forEach(el => el.style.display = !v || el.dataset.search.includes(v) ? '' : 'none');
+});
+</script>
+{% endblock %}

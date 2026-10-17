@@ -1,0 +1,14 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}Кириш{% endblock %}
+{% block auth %}
+<div class="auth-card">
+  <div class="logo">{% icon "cap" "lg" %}</div>
+  <h1>Ходимлар учун кириш</h1>
+  <p class="lead">Логин ва паролингизни киритинг.</p>
+  <form method="post">{% csrf_token %}
+    {% include "exam/_fields.html" %}
+    <button class="btn lg block">Кириш</button>
+  </form>
+</div>
+{% endblock %}

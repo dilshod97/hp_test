@@ -1,0 +1,10 @@
+.venv
+__pycache__
+db.sqlite3
+staticfiles
+.env
+.claude
+media
+certs
+*.docx
+.git

@@ -1,0 +1,21 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}Тестлар{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Тестлар</h1><div class="sub">Тест — блоклар (вақти билан) ва ундаги саволлар тўплами</div></div>
+  <div class="actions"><a class="btn" href="{% url 'test_create' %}">{% icon "plus" %} Янги тест</a></div></div>
+<div class="card flush"><div class="table-wrap"><table>
+  <thead><tr><th>Номи</th><th>Ҳолат</th><th class="num">Блоклар</th><th class="num">Номзодлар</th><th>Муаллиф</th></tr></thead>
+  <tbody>
+  {% for t in tests %}
+  <tr onclick="location.href='{% url 'test_detail' t.pk %}'" style="cursor:pointer">
+    <td><a class="table-link" href="{% url 'test_detail' t.pk %}">{{ t.title }}</a></td>
+    <td>{% if t.is_active %}<span class="badge on">Фаол</span>{% else %}<span class="badge off">Нофаол</span>{% endif %}</td>
+    <td class="num">{{ t.block_count }}</td>
+    <td class="num">{{ t.assignment_count }}</td>
+    <td class="muted small">{{ t.created_by.get_full_name|default:t.created_by.username }}</td>
+  </tr>
+  {% empty %}<tr><td colspan="5"><div class="empty">{% icon "file" %}<div>Ҳали тест йўқ</div></div></td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

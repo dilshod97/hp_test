@@ -1,0 +1,21 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}Текшириш{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Текшириш учун ишлар</h1><div class="sub">Ишлар фақат аноним код билан кўрсатилади. Бошқа экспертларнинг баллари сизга кўринмайди.</div></div></div>
+<div class="card flush"><div class="table-wrap"><table>
+  <thead><tr><th>Код</th><th>Тест</th><th>Текширув</th><th>Ҳолат</th><th>Бириктирилган</th><th></th></tr></thead>
+  <tbody>
+  {% for r in reviews %}
+  <tr>
+    <td class="mono">{{ r.attempt.code }}</td>
+    <td>{{ r.attempt.test.title }}</td>
+    <td class="small">{% if r.round == 3 %}⚖ Учинчи (ҳакам){% else %}Мустақил{% endif %}</td>
+    <td>{% if r.is_submitted %}<span class="badge graded">Топширилди</span>{% else %}<span class="badge finished">Кутилмоқда</span>{% endif %}</td>
+    <td class="muted small">{{ r.assigned_at|date:"d.m.Y H:i" }}</td>
+    <td class="num"><a class="btn sm{% if r.is_submitted %} secondary{% endif %}" href="{% url 'check_attempt' r.attempt.code %}">{% if r.is_submitted %}Кўриш{% else %}Баҳолаш{% endif %}</a></td>
+  </tr>
+  {% empty %}<tr><td colspan="6"><div class="empty">{% icon "inbox" %}<div>Сизга бириктирилган ишлар йўқ</div></div></td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

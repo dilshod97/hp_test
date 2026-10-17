@@ -1,0 +1,12 @@
+{% extends "exam/base_staff.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% if back %}<div class="crumbs"><a href="{% url 'test_detail' back.pk %}">{{ back }}</a> /</div>{% endif %}
+<div class="page-head"><div><h1>{{ title }}</h1></div></div>
+<div class="card" style="max-width:780px">
+  <form method="post">{% csrf_token %}
+    {% include "exam/_fields.html" %}
+    <div class="form-actions"><button class="btn">Сақлаш</button>{% if back %}<a class="btn ghost" href="{% url 'test_detail' back.pk %}">Бекор қилиш</a>{% endif %}</div>
+  </form>
+</div>
+{% endblock %}

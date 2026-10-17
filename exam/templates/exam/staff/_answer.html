@@ -1,0 +1,10 @@
+{% load exam_tags %}<div class="answer-box">
+  {% if a.question.qtype == 'choice' %}
+    {% for o in a.question.options.all %}
+      <div>{{ forloop.counter0|letter }}) {% if o.pk == a.selected_option_id %}<span class="chosen">{{ o.text }} ← танланган</span>{% else %}{{ o.text }}{% endif %}{% if show_key and o.pk == a.question.correct_option_id %} <span class="badge on">калит</span>{% endif %}</div>
+    {% endfor %}
+    {% if not a.selected_option_id %}<div class="muted"><i>Жавоб танланмаган</i></div>{% endif %}
+  {% else %}
+    {% if a.text_answer %}{{ a.text_answer|safe }}{% else %}<span class="muted"><i>Жавоб ёзилмаган</i></span>{% endif %}
+  {% endif %}
+</div>

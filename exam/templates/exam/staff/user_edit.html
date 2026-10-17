@@ -1,0 +1,12 @@
+{% extends "exam/base_staff.html" %}
+{% block title %}{{ obj.username }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'user_list' %}">Фойдаланувчилар</a> /</div>
+<div class="page-head"><div><h1>{{ obj.get_full_name|default:obj.username }}</h1><div class="meta"><span class="mono">{{ obj.username }}</span><span>{{ obj.get_role_display }}</span></div></div></div>
+<div class="grid cols-2">
+  <div class="card"><h2>Маълумотлар</h2>
+    <form method="post">{% csrf_token %}{% include "exam/_fields.html" with form=form %}<button class="btn" name="save_user">Сақлаш</button></form></div>
+  <div class="card"><h2>Паролни ўзгартириш</h2>
+    <form method="post">{% csrf_token %}{% include "exam/_fields.html" with form=pw_form %}<button class="btn" name="save_password" value="1">Паролни сақлаш</button></form></div>
+</div>
+{% endblock %}

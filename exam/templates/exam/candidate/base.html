@@ -1,0 +1,18 @@
+{% load static %}<!doctype html>
+<html lang="uz-Cyrl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Танлов тести</title>
+<link rel="stylesheet" href="{% static 'exam/style.css' %}?v=6">
+</head>
+<body class="exam-body" oncontextmenu="return false">
+{% block content %}{% endblock %}
+{% block scripts %}{% endblock %}
+<script>
+// Браузернинг рус тилидаги кичик огоҳлантиришлари ўрнига сервер хатолари (кириллчада) кўрсатилади
+document.querySelectorAll('form').forEach(f => f.noValidate = true);
+const firstErr = document.querySelector('.has-error input, .has-error select, .has-error textarea');
+if (firstErr) firstErr.focus();
+</script>
+</body>
+</html>

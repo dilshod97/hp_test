@@ -1,0 +1,41 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}Базадан қўшиш{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'test_detail' test.pk %}">{{ test }}</a> / {{ cur_block }} /</div>
+<div class="page-head"><div><h1>Базадан савол қўшиш</h1><div class="sub">Бўлимни танланг, керакли саволларни белгиланг ва «Қўшиш» ни босинг.</div></div></div>
+<form method="post">{% csrf_token %}
+<input type="hidden" name="bank" value="{{ bank.pk }}">
+<div class="card flush">
+  <div class="toolbar">
+    <select onchange="location.href='?bank='+this.value">
+      {% for b in banks %}<option value="{{ b.pk }}" {% if b.pk == bank.pk %}selected{% endif %}>{{ b.name }} ({{ b.n }})</option>{% endfor %}
+    </select>
+    <input class="search" type="text" id="filter" placeholder="Қидириш…">
+    <span class="muted small">Танланган: <b id="count">0</b></span>
+    <button class="btn">{% icon "plus" %} Қўшиш</button>
+  </div>
+  {% for q in questions %}
+  <label class="pick{% if q.pk in already %} disabled{% endif %}" data-search="{{ q.title|lower }} {{ q.text|striptags|lower }}">
+    <input type="checkbox" name="questions" value="{{ q.pk }}" {% if q.pk in already %}disabled checked{% endif %}>
+    <div style="flex:1">
+      <div class="q-title">{{ forloop.counter }}. {{ q.title|default:"Савол" }}</div>
+      <div class="q-meta">{{ q.max_score|num }} балл{% if q.pk in already %} · аллақачон қўшилган{% endif %}</div>
+      <div class="qtext small" style="margin-top:6px">{{ q.text|striptags|truncatechars:220 }}</div>
+    </div>
+  </label>
+  {% empty %}<div class="empty">Бу бўлимда савол йўқ</div>{% endfor %}
+</div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('filter').addEventListener('input', e => {
+  const v = e.target.value.toLowerCase().trim();
+  document.querySelectorAll('[data-search]').forEach(el => el.style.display = !v || el.dataset.search.includes(v) ? '' : 'none');
+});
+document.addEventListener('change', () => {
+  document.getElementById('count').textContent = document.querySelectorAll('input[name=questions]:checked:not(:disabled)').length;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}{{ test }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'test_list' %}">Тестлар</a> /</div>
+<div class="page-head">
+  <div>
+    <h1>{{ test.title }}</h1>
+    <div class="meta">
+      {% if test.is_active %}<span class="badge on">Фаол</span>{% else %}<span class="badge off">Нофаол</span>{% endif %}
+      <span>{% icon "clock" %} <b>{{ test.total_minutes }}</b> дақиқа</span>
+      <span>Макс. балл: <b>{{ test.max_score|num }}</b></span>
+      <span>Номзодлар: {% if user.is_superadmin %}<a href="{% url 'candidate_list' %}?test={{ test.pk }}"><b>{{ test.assignments.count }}</b></a>{% else %}<b>{{ test.assignments.count }}</b>{% endif %}</span>
+    </div>
+  </div>
+  <div class="actions">
+    <a class="btn secondary" href="{% url 'test_preview' test.pk %}">{% icon "eye" %} Кўриб чиқиш</a>
+    <a class="btn secondary" href="{% url 'test_edit' test.pk %}">{% icon "settings" %} Созламалар</a>
+    <form method="post" action="{% url 'test_copy' test.pk %}" class="inline">{% csrf_token %}<button class="btn secondary">{% icon "copy" %} Нусха</button></form>
+    {% if not test.is_locked %}
+    <form method="post" action="{% url 'test_delete' test.pk %}" class="inline" data-danger data-confirm="Тестни бутунлай ўчирасизми?">{% csrf_token %}<button class="btn danger icon" title="Ўчириш" style="width:40px">{% icon "trash" %}</button></form>
+    {% endif %}
+  </div>
+</div>
+
+{% if test.is_locked %}
+<div class="alert info row between">
+  <span>{% icon "lock" %} Номзодлар бу тестни бошлаган ({{ test.attempts.count }} та натижа) — савол ва блокларни ўзгартириб бўлмайди. Ўзгартириш учун тестнинг нусхасини олинг.</span>
+  <span class="row" style="gap:6px">
+    <form method="post" action="{% url 'test_copy' test.pk %}" class="inline">{% csrf_token %}<button class="btn sm">{% icon "copy" %} Нусха олиб таҳрирлаш</button></form>
+    {% if user.is_superadmin %}<form method="post" action="{% url 'test_unlock' test.pk %}" class="inline" data-danger data-confirm="Бу тестнинг БАРЧА натижалари ({{ test.attempts.count }} та) ва экспертлар баҳолари бутунлай ўчирилади. Бу фақат синов натижалари учун. Давом этасизми?">{% csrf_token %}<button class="btn danger sm">{% icon "trash" %} Натижаларни ўчириб, очиш</button></form>{% endif %}
+  </span>
+</div>
+{% elif not ready %}
+<div class="card">
+  <h2>Тестни тайёрлаш</h2>
+  <p class="muted small">Номзодлар тестни бошлаши учун қуйидаги қадамларни бажаринг.</p>
+  <div class="checklist">
+    {% for st in steps %}<div class="step{% if st.done %} done{% endif %}"><span class="n">{% if st.done %}✓{% else %}{{ forloop.counter }}{% endif %}</span><span class="t">{{ st.title }}<small>{{ st.hint }}</small></span></div>{% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid two-col">
+<div>
+  {% for b in blocks %}
+  <div class="card flush block-card">
+    <div class="card-head">
+      <div><h2><span class="block-num">{{ forloop.counter }}</span>{{ b.title }}</h2>
+        <div class="muted small" style="margin:4px 0 0 36px">{{ b.get_kind_display }} · {{ b.duration_minutes }} дақиқа · {{ b.questions.all|length }} савол</div></div>
+      {% if not test.is_locked %}
+      <div class="row" style="gap:6px">
+        <a class="btn sm" href="{% url 'block_add_from_bank' b.pk %}">{% icon "db" %} Базадан</a>
+        <a class="btn secondary sm" href="{% url 'question_create' b.pk %}">{% icon "plus" %} Савол</a>
+        <a class="btn ghost sm icon" href="{% url 'block_edit' b.pk %}" title="Блокни таҳрирлаш">{% icon "edit" %}</a>
+        <form method="post" action="{% url 'block_delete' b.pk %}" class="inline" data-danger data-confirm="Блок ва ундаги барча саволлар ўчирилади. Давом этасизми?">{% csrf_token %}<button class="btn ghost sm icon" title="Блокни ўчириш">{% icon "trash" %}</button></form>
+      </div>
+      {% endif %}
+    </div>
+    {% if b.kind == 'logic' and b.questions.all %}
+    {% if b.description %}<p class="muted small" style="padding:14px 20px 0">{{ b.description }}</p>{% endif %}
+    <div class="table-wrap"><table class="score-table">
+      <thead><tr><th>№</th><th>Савол</th><th class="num">Калит</th><th class="num">Балл</th>{% if not test.is_locked %}<th></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for q in b.questions.all %}
+      <tr>
+        <td class="muted">{{ forloop.counter }}</td>
+        <td class="small"><details><summary>{{ q.text|striptags|truncatechars:90 }}</summary>{% include "exam/staff/_question.html" %}</details></td>
+        <td class="num"><b>{{ q.correct_letter|default:"—" }}</b></td>
+        <td class="num">{{ q.max_score|num }}</td>
+        {% if not test.is_locked %}<td class="num nowrap">
+          <a class="btn ghost sm icon" href="{% url 'question_edit' q.pk %}" title="Таҳрирлаш">{% icon "edit" %}</a>
+          <form method="post" action="{% url 'question_delete' q.pk %}" class="inline" data-danger data-confirm="Саволни ўчирасизми?">{% csrf_token %}<button class="btn ghost sm icon" title="Ўчириш">{% icon "trash" %}</button></form>
+        </td>{% endif %}
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+    <div class="card-body">
+      {% if b.description %}<p class="muted small">{{ b.description }}</p>{% endif %}
+      {% for q in b.questions.all %}
+      <div class="q-item">
+        <div class="q-head">
+          <div><div class="q-title">{{ forloop.counter }}. {{ q.title|default:"Савол" }}</div>
+            <div class="q-meta">{{ q.get_qtype_display }} · {{ q.max_score|num }} балл{% if q.is_auto %} · автоматик баҳоланади{% endif %}</div></div>
+          {% if not test.is_locked %}
+          <div class="row" style="gap:4px">
+            <a class="btn ghost sm icon" href="{% url 'question_edit' q.pk %}" title="Таҳрирлаш">{% icon "edit" %}</a>
+            <form method="post" action="{% url 'question_delete' q.pk %}" class="inline" data-danger data-confirm="Саволни ўчирасизми?">{% csrf_token %}<button class="btn ghost sm icon" title="Ўчириш">{% icon "trash" %}</button></form>
+          </div>
+          {% endif %}
+        </div>
+        <details style="margin-top:6px"><summary class="muted small">Савол матни{% if q.criteria.all %} ва мезонлар{% endif %}</summary>{% include "exam/staff/_question.html" %}</details>
+      </div>
+      {% empty %}<div class="empty" style="padding:24px">Бу блокда ҳали савол йўқ. «Базадан» ёки «Савол» тугмасини босинг.</div>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="card"><div class="empty">{% icon "list" %}<div style="margin-bottom:14px">Ҳали блок йўқ. Тайёр блокдан бошланг:</div>
+    <div class="row" style="justify-content:center">
+      <a class="btn" href="{% url 'block_create' test.pk %}?preset=logic">{% icon "plus" %} Мантиқий тест блоки (40 дақ.)</a>
+      <a class="btn" href="{% url 'block_create' test.pk %}?preset=practical">{% icon "plus" %} Ёзма амалий блок (180 дақ.)</a>
+    </div></div></div>
+  {% endfor %}
+  {% if not test.is_locked and blocks %}<div class="row">
+    <a class="btn secondary" href="{% url 'block_create' test.pk %}?preset=logic">{% icon "plus" %} Мантиқий тест блоки</a>
+    <a class="btn secondary" href="{% url 'block_create' test.pk %}?preset=practical">{% icon "plus" %} Ёзма амалий блок</a>
+    <a class="btn ghost" href="{% url 'block_create' test.pk %}">{% icon "plus" %} Бошқа блок</a>
+  </div>{% endif %}
+</div>
+
+<div>
+  <div class="card flush">
+    <div class="card-head"><h2>Созламалар</h2><a class="btn ghost sm" href="{% url 'test_edit' test.pk %}">{% icon "edit" %}</a></div>
+    <div class="card-body small stack">
+      <div class="row between"><span class="muted">Текшириш</span><b>{{ test.get_review_mode_display }}</b></div>
+      <div class="row between"><span class="muted">Саволларни аралаштириш</span><b>{{ test.shuffle_questions|yesno:"ҳа,йўқ" }}</b></div>
+      <div class="row between"><span class="muted">Вазнлар (амалий / мантиқий / суҳбат / ҳимоя)</span><b>{{ test.weight_practical|num }} / {{ test.weight_logic|num }} / {{ test.weight_interview|num }} / {{ test.weight_defense|num }}</b></div>
+    </div>
+  </div>
+  <div class="card flush">
+    <div class="card-head"><h2>{% icon "users" %} Экспертлар</h2>{% if user.is_superadmin %}<a class="btn ghost sm" href="{% url 'test_checkers' test.pk %}">{% icon "edit" %}</a>{% endif %}</div>
+    <div class="card-body small">
+      {% for c in test.checkers.all %}<div style="padding:4px 0">{{ c.get_full_name|default:c.username }}</div>{% empty %}<div class="alert warn" style="margin:0">Эксперт бириктирилмаган</div>{% endfor %}
+      {% if test.review_mode == 'double' and test.checkers.count < 3 %}<div class="alert warn" style="margin:10px 0 0">Икки эксперт режими учун камида 2 та, учинчи текширув учун 3 та эксперт керак.</div>{% endif %}
+    </div>
+  </div>
+  <div class="card flush">
+    <div class="card-head"><h2>Суҳбат саволлари</h2><a class="btn ghost sm" href="{% url 'test_edit' test.pk %}">{% icon "edit" %}</a></div>
+    <div class="card-body small">
+      <p class="muted">Комиссия оғзаки беради, номзод компьютерда кўрмайди.</p>
+      {% for q in interview_questions %}<div style="padding:4px 0">{{ forloop.counter }}. {{ q.title }}</div>{% empty %}<div class="muted">Танланмаган</div>{% endfor %}
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}
