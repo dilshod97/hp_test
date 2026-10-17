@@ -41,6 +41,7 @@ urlpatterns = [
     path("staff/blocks/<int:pk>/from-bank/", s.block_add_from_bank, name="block_add_from_bank"),
     path("staff/banks/", s.bank_list, name="bank_list"),
     path("staff/banks/new/", s.bank_create, name="bank_create"),
+    path("staff/banks/import/", s.bank_import, name="bank_import"),
     path("staff/banks/<int:pk>/", s.bank_detail, name="bank_detail"),
     path("staff/banks/<int:pk>/edit/", s.bank_edit, name="bank_edit"),
     path("staff/banks/<int:bank_pk>/questions/new/", s.bank_question_create, name="bank_question_create"),

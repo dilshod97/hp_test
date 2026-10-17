@@ -3,7 +3,8 @@
 {% block title %}Саволлар базаси{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>Саволлар базаси</h1><div class="sub">Тестга саволлар шу ердан нусха қилиб қўшилади. Базадаги ўзгариш тайёр тестларга таъсир қилмайди.</div></div>
-  <div class="actions"><a class="btn" href="{% url 'bank_create' %}">{% icon "plus" %} Янги бўлим</a></div></div>
+  <div class="actions"><a class="btn" href="{% url 'bank_import' %}">{% icon "upload" %} Ҳужжатдан юклаш (.docx)</a>
+    <a class="btn secondary" href="{% url 'bank_create' %}">{% icon "plus" %} Янги бўлим</a></div></div>
 {% regroup banks by get_kind_display as groups %}
 {% for g in groups %}
 <div class="section-title">{{ g.grouper }}</div>
@@ -11,9 +12,10 @@
   {% for b in g.list %}
   <a class="card tight" href="{% url 'bank_detail' b.pk %}" style="display:block;color:inherit;text-decoration:none;margin:0">
     <div class="row between"><b>{{ b.name }}</b>{% icon "right" %}</div>
-    <div class="muted small" style="margin-top:6px">{{ b.n }} та савол</div>
+    <div class="muted small" style="margin-top:6px">{{ b.n }} та савол{% if b.source %} · {{ b.source|truncatechars:48 }}{% endif %}</div>
   </a>
   {% endfor %}
 </div>
-{% empty %}<div class="card"><div class="empty">{% icon "db" %}<div>Ҳали бўлим йўқ</div></div></div>{% endfor %}
+{% empty %}<div class="card"><div class="empty">{% icon "db" %}<div style="margin-bottom:12px">Ҳали савол йўқ. Танлов материалларини Word файлдан юкланг.</div>
+  <a class="btn" href="{% url 'bank_import' %}">{% icon "upload" %} Ҳужжатдан юклаш</a></div></div>{% endfor %}
 {% endblock %}

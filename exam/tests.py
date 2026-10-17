@@ -621,3 +621,93 @@ class PhotoTests(Base):
         self.assertEqual(Attempt.purge_old_photos(), 1)
         attempt.refresh_from_db()
         self.assertEqual((attempt.photo, attempt.photo_status), ("", "purged"))
+
+
+def make_docx(title="Ички аудит танлови", logic_key="Б", code="ИТ"):
+    from io import BytesIO
+
+    import docx
+    d = docx.Document()
+    d.add_paragraph(title, style="Title")
+    d.add_paragraph("Ички аудитор учун амалий топшириқлар", style="Heading 1")
+    d.add_paragraph("Кириш матни.")
+    d.add_paragraph(f"{code} 01 Тармоқ хавфсизлиги", style="Heading 2")
+    d.add_paragraph("Тармоқдаги хавфни баҳоланг.")
+    d.add_paragraph("1. Хавфни аниқлайди. 2 балл")
+    d.add_paragraph("2. Чора таклиф этади. 3 балл")
+    d.add_paragraph("1 тўплам", style="Heading 1")
+    d.add_paragraph("1. 2+2 нечага тенг?")
+    d.add_paragraph("А) 3     Б) 4     В) 5")
+    d.add_paragraph("Тест жавоблари ва изоҳлари", style="Heading 1")
+    d.add_paragraph("1 тўплам калити", style="Heading 2")
+    t = d.add_table(rows=2, cols=4)
+    for i, v in enumerate(["№", "Тўғри", "Яқин вариантлар", "Қисқа изоҳ"]):
+        t.rows[0].cells[i].text = v
+    for i, v in enumerate(["1", logic_key, "А, В", "Оддий қўшиш"]):
+        t.rows[1].cells[i].text = v
+    buf = BytesIO()
+    d.save(buf)
+    buf.seek(0)
+    buf.name = "hujjat.docx"
+    return buf
+
+
+class WebImportTests(Base):
+    def setUp(self):
+        super().setUp()
+        import tempfile
+        from pathlib import Path
+        self.tmp = tempfile.TemporaryDirectory()
+        self.media = self.settings(MEDIA_ROOT=Path(self.tmp.name))
+        self.media.enable()
+        self.client.force_login(self.author)
+
+    def tearDown(self):
+        self.media.disable()
+        self.tmp.cleanup()
+
+    def upload(self, buf, source=None):
+        r = self.client.post(reverse("bank_import"), {"step": "check", "file": buf})
+        self.assertEqual(r.status_code, 200)
+        token = r.context.get("token")
+        if r.context["parsed"].errors:
+            return r, None
+        r2 = self.client.post(reverse("bank_import"), {"step": "import", "token": token,
+                                                       "source": source or r.context["source"]})
+        return r, r2
+
+    def test_check_then_import(self):
+        r, r2 = self.upload(make_docx())
+        self.assertContains(r, "Юклашга тайёр")
+        self.assertContains(r, "Ички аудитор учун амалий топшириқлар")
+        self.assertRedirects(r2, reverse("bank_list"))
+        banks = QuestionBank.objects.filter(source="Ички аудит танлови")
+        self.assertEqual(banks.count(), 2)
+        task = Question.objects.get(bank__source="Ички аудит танлови", code="ИТ 01")
+        self.assertEqual(task.max_score, 5)
+        self.assertEqual(task.criteria.count(), 2)
+        logic = Question.objects.get(bank__source="Ички аудит танлови", qtype="choice")
+        self.assertEqual(logic.correct_option.text, "4")
+        # Қайта юклаш — дубликат йўқ, калит янгиланади
+        self.upload(make_docx(logic_key="В"))
+        self.assertEqual(Question.objects.filter(bank__source="Ички аудит танлови").count(), 2)
+        logic = Question.objects.get(bank__source="Ички аудит танлови", qtype="choice")
+        self.assertEqual(logic.correct_option.text, "5")
+        # Бошқа ҳужжат бошқа манба остида — мавжудлар устига ёзмайди
+        self.upload(make_docx(title="Бошқа танлов"))
+        self.assertEqual(Question.objects.filter(bank__source="Ички аудит танлови").count(), 2)
+        self.assertEqual(Question.objects.filter(bank__source="Бошқа танлов").count(), 2)
+
+    def test_errors_block_import(self):
+        r, r2 = self.upload(make_docx(logic_key="Е"))
+        self.assertIsNone(r2)
+        self.assertContains(r, "калитдаги")
+        self.assertEqual(QuestionBank.objects.filter(source="Ички аудит танлови").count(), 0)
+        from io import BytesIO
+        bad = BytesIO(b"not a docx"); bad.name = "x.docx"
+        r = self.client.post(reverse("bank_import"), {"step": "check", "file": bad})
+        self.assertContains(r, "Файлни ўқиб бўлмади")
+
+    def test_experts_cannot_import(self):
+        self.client.force_login(self.c1)
+        self.assertEqual(self.client.get(reverse("bank_import")).status_code, 403)

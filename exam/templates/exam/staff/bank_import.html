@@ -1,0 +1,80 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}Ҳужжатдан юклаш{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'bank_list' %}">Саволлар базаси</a> /</div>
+<div class="page-head"><div><h1>Ҳужжатдан юклаш</h1>
+  <div class="sub">Танлов материаллари форматидаги Word (.docx) файлдан саволлар, вариантлар, калитлар ва баҳолаш мезонларини юклайди.</div></div></div>
+
+{% if not parsed %}
+<div class="grid two-col">
+  <div class="card">
+    <h2>1. Файлни танланг</h2>
+    <form method="post" enctype="multipart/form-data">{% csrf_token %}
+      <input type="hidden" name="step" value="check">
+      <div class="field"><label for="f">Word файл (.docx) <span class="req">*</span></label>
+        <input id="f" type="file" name="file" accept=".docx" required></div>
+      <button class="btn">{% icon "search" %} Текшириш</button>
+      <p class="muted small" style="margin-top:12px">Аввал файл текширилади ва нима юкланиши кўрсатилади. Тасдиқламагунингизча базага ҳеч нарса ёзилмайди.</p>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Ҳужжат формати</h2>
+    <p class="small muted">Word'даги <b>услублар</b> (Стили) бўйича ўқилади — «Ҳисоб палатаси танлов материаллари» ҳужжатидагидек.</p>
+    <ul class="small" style="padding-left:18px;line-height:1.7">
+      <li><b>Сарлавҳа 1</b> (Heading 1) — бўлим номи, масалан «Молиявий аудитор учун амалий топшириқлар».</li>
+      <li><b>Сарлавҳа 2</b> — топшириқ: <span class="mono">МА 01 Банк қолдиғини солиштириш</span> (код, рақам, номи). Остида шарт матни ва мезонлар: <span class="mono">1. Мезон матни. 2 балл</span></li>
+      <li>Суҳбат бўлими номи «Суҳбат…» билан бошланади. Кириш матнида <span class="mono">С 01–С 12 — умумий; С 13–С 16 — …</span> бўлса, гуруҳларга бўлинади.</li>
+      <li>Мантиқий тест: <b>Сарлавҳа 1</b> <span class="mono">1 тўплам</span>, саволлар <span class="mono">1. Савол матни</span>, вариантлар <span class="mono">А) …  Б) …</span></li>
+      <li>Калитлар: <b>Сарлавҳа 2</b> <span class="mono">1 тўплам калити</span> ва жадвал: № | Тўғри | Яқин вариантлар | Изоҳ.</li>
+    </ul>
+    <p class="small muted">Ҳужжат қайта юкланса, саволлар код бўйича янгиланади. Тайёр тестлардаги нусхаларга таъсир қилмайди.</p>
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <div class="row between top">
+    <div><h2 style="margin-bottom:4px">2. Текшириш натижаси</h2><div class="muted small">{{ filename }}</div></div>
+    {% if parsed.errors %}<span class="badge danger">Хатолар бор</span>{% else %}<span class="badge ok">Юклашга тайёр</span>{% endif %}
+  </div>
+
+  {% if parsed.errors %}
+  <div class="alert" style="background:var(--danger-soft);border-color:#fecaca;color:#991b1b;margin-top:14px">
+    <b>Ҳужжатни юклаб бўлмайди. Қуйидагиларни тузатинг:</b>
+    <ul style="margin:8px 0 0;padding-left:18px">{% for e in parsed.errors|slice:":30" %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% if parsed.errors|length > 30 %}<div>… ва яна {{ parsed.errors|length|add:"-30" }} та</div>{% endif %}
+  </div>
+  <a class="btn secondary" href="{% url 'bank_import' %}">Бошқа файл танлаш</a>
+  {% else %}
+
+  <div class="table-wrap" style="margin:16px 0"><table>
+    <thead><tr><th>Бўлим</th><th>Тури</th><th class="num">Саволлар</th></tr></thead>
+    <tbody>
+    {% for s in parsed.sections %}<tr><td><b>{{ s.name }}</b></td>
+      <td>{% if s.kind == 'logic' %}Мантиқий тест (калит билан){% elif s.kind == 'interview' %}Суҳбат саволлари{% else %}Ёзма амалий топшириқлар{% endif %}</td>
+      <td class="num">{{ s.items|length }}</td></tr>{% endfor %}
+    <tr><td><b>Жами</b></td><td></td><td class="num"><b>{{ parsed.question_count }}</b></td></tr>
+    </tbody>
+  </table></div>
+
+  {% if parsed.warnings %}<div class="alert warn"><b>Огоҳлантиришлар ({{ parsed.warnings|length }}):</b>
+    <ul style="margin:6px 0 0;padding-left:18px">{% for w in parsed.warnings|slice:":10" %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if existing %}<div class="alert info">Бу ҳужжат аввал юкланган ({{ existing }} та бўлим). Саволлар код бўйича янгиланади, дубликат пайдо бўлмайди.</div>{% endif %}
+
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="step" value="import"><input type="hidden" name="token" value="{{ token }}">
+    <div class="field" style="max-width:640px"><label for="src">Манба номи</label>
+      <input id="src" type="text" name="source" value="{{ source }}">
+      <div class="help">Саволлар базасида бўлимлар шу ном остида сақланади. Бошқа ҳужжат учун бошқа ном беринг.</div></div>
+    <div class="field checkbox"><input type="checkbox" id="ct" name="create_tests" value="1" checked>
+      <div><label for="ct">Намуна тестларни яратиш</label><div class="help">Ҳисоб палатаси ҳужжатидаги кодлар (МА, ТА, С) топилса, нофаол намуна билетлар яратилади.</div></div></div>
+    <div class="form-actions">
+      <button class="btn success">{% icon "upload" %} Тасдиқлаш ва юклаш</button>
+      <a class="btn ghost" href="{% url 'bank_import' %}">Бекор қилиш</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

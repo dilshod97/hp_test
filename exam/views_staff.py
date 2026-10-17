@@ -855,3 +855,64 @@ def result_photo(request, pk):
     response = FileResponse(open(path, "rb"), content_type="image/jpeg")
     response["Cache-Control"] = "private, no-store"
     return response
+
+
+# ---------------------------------------------------------------- Ҳужжатдан юклаш (.docx)
+
+@role_required("is_author")
+def bank_import(request):
+    """1-қадам: файлни юклаб, текшириш. 2-қадам: тасдиқлаб, базага ёзиш."""
+    import uuid
+
+    from django.conf import settings
+
+    from .importer import import_parsed, parse
+
+    folder = settings.MEDIA_ROOT / "imports"
+    folder.mkdir(parents=True, exist_ok=True)
+    ctx = {"retention": settings.PHOTO_RETENTION_DAYS}
+
+    if request.method == "POST" and request.POST.get("step") == "import":
+        token = request.POST.get("token", "")
+        path = folder / f"{token}.docx"
+        if not token.isalnum() or not path.exists():
+            messages.error(request, "Файл топилмади, қайтадан юкланг.")
+            return redirect("bank_import")
+        parsed = parse(str(path))
+        if parsed.errors:
+            messages.error(request, "Ҳужжатда хатолар бор.")
+            return redirect("bank_import")
+        source = request.POST.get("source", "").strip()[:255] or parsed.title or "Ҳужжат"
+        report = import_parsed(parsed, source, user=request.user, create_tests=bool(request.POST.get("create_tests")))
+        path.unlink(missing_ok=True)
+        text = f"Юкланди: {report['created']} та янги, {report['updated']} та янгиланган савол."
+        if report["tests"]:
+            text += " Намуна тестлар (нофаол): " + ", ".join(report["tests"]) + "."
+        messages.success(request, text)
+        return redirect("bank_list")
+
+    if request.method == "POST":
+        f = request.FILES.get("file")
+        if f is None or not f.name.lower().endswith(".docx"):
+            messages.error(request, "Word (.docx) файлини танланг.")
+            return redirect("bank_import")
+        if f.size > 20 * 1024 * 1024:
+            messages.error(request, "Файл 20 МБ дан катта бўлмасин.")
+            return redirect("bank_import")
+        # Эски (тасдиқланмаган) юкламаларни тозалаймиз
+        import time
+        for old in folder.glob("*.docx"):
+            if time.time() - old.stat().st_mtime > 24 * 3600:
+                old.unlink(missing_ok=True)
+        token = uuid.uuid4().hex
+        path = folder / f"{token}.docx"
+        with open(path, "wb") as out:
+            for chunk in f.chunks():
+                out.write(chunk)
+        parsed = parse(str(path))
+        source = parsed.title or f.name.rsplit(".", 1)[0]
+        existing = QuestionBank.objects.filter(source=source).count()
+        ctx.update({"parsed": parsed, "token": token, "source": source, "filename": f.name, "existing": existing})
+        if parsed.errors:
+            path.unlink(missing_ok=True)
+    return render(request, "exam/staff/bank_import.html", ctx)

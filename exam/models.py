@@ -47,6 +47,7 @@ class Kind(models.TextChoices):
 
 class QuestionBank(models.Model):
     """Саволлар базаси (бўлим). Тестга саволлар базадан нусха қилиб қўшилади."""
+    source = models.CharField("Манба ҳужжат", max_length=255, blank=True, help_text="Қайси ҳужжатдан юкланган")
     name = models.CharField("Номи", max_length=255)
     kind = models.CharField("Тури", max_length=20, choices=Kind.choices, default=Kind.PRACTICAL)
     description = models.TextField("Изоҳ / кўрсатма", blank=True)

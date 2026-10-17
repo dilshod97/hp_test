@@ -155,7 +155,7 @@ class BlockForm(forms.ModelForm):
 class BankForm(forms.ModelForm):
     class Meta:
         model = QuestionBank
-        fields = ["name", "kind", "description", "order"]
+        fields = ["name", "kind", "source", "description", "order"]
         labels = {"order": "Тартиб"}
         widgets = {"description": forms.Textarea(attrs={"rows": 3})}
 
