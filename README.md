@@ -13,7 +13,9 @@ Ichki tarmoqda ishlaydi, internet talab qilmaydi. Nomzodlar testni **Safe Exam B
 
 ## Tanlov materiallari (Hisob palatasi)
 
-Materiallar `.docx` fayldan bir buyruq bilan yuklanadi:
+Materiallar `.docx` fayldan yuklanadi. **Eng oson yo'li — veb-sahifa:** «Саволлар базаси» → **«Ҳужжатдан юклаш (.docx)»**. Avval fayl tekshiriladi va nima yuklanishi ko'rsatiladi, tasdiqlangandan keyin bazaga yoziladi. Shu formatdagi boshqa hujjatlarni ham shu yerdan yuklaysiz: har bir hujjat o'z nomi (manba) ostida saqlanadi, qayta yuklansa savollar kod bo'yicha yangilanadi. Format qoidalari sahifaning o'zida va `exam/importer.py` boshida yozilgan.
+
+Yoki buyruq bilan:
 
 ```bash
 .venv/bin/python manage.py import_tanlov /path/Hisob_palatasi_tanlov_materiallari_uz_kirill.docx
