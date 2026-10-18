@@ -699,6 +699,42 @@ def assignment_delete(request, pk):
 
 
 @role_required("can_manage_candidates")
+def assignment_edit(request, pk):
+    """Номзод маълумотлари ва тестини ўзгартириш. Логин ва парол ўзгармайди."""
+    x = get_object_or_404(Assignment.objects.select_related("candidate", "test"), pk=pk)
+    c = x.candidate
+    started = x.attempt is not None
+    birth = c.birth_date.strftime("%d.%m.%Y") if c.birth_date else (str(c.birth_year) if c.birth_year else "")
+    form = CandidateForm(request.POST or None, initial={
+        "last_name": c.last_name, "first_name": c.first_name, "middle_name": c.middle_name,
+        "birth": birth, "test": x.test_id,
+    })
+    if started:
+        form.fields["test"].disabled = True
+        form.fields["test"].help_text = "Номзод тестни бошлаган — тестни ўзгартириб бўлмайди."
+    if request.method == "POST" and form.is_valid():
+        d = form.cleaned_data
+        born_date, year = d["birth"]
+        key = Candidate.make_identity_key(d["last_name"], d["first_name"], d["middle_name"], born_date or year)
+        new_test = x.test if started else d["test"]
+        if Candidate.objects.filter(identity_key=key).exclude(pk=c.pk).exists():
+            form.add_error(None, "Шундай Ф.И.Ш. ва туғилган йилли бошқа номзод рўйхатда бор.")
+        elif new_test != x.test and Assignment.objects.filter(candidate=c, test=new_test).exists():
+            form.add_error("test", "Бу номзод шу тестга аллақачон бириктирилган.")
+        else:
+            with transaction.atomic():
+                c.last_name, c.first_name, c.middle_name = d["last_name"].strip(), d["first_name"].strip(), d["middle_name"].strip()
+                c.birth_date, c.birth_year, c.identity_key = born_date, year, key
+                c.save()
+                if new_test != x.test:
+                    x.test = new_test
+                    x.save(update_fields=["test"])
+            messages.success(request, f"{c.full_name}: маълумотлар сақланди. Логин ва парол ўзгармади — варақча ишлайверади.")
+            return redirect(f"{reverse('candidate_list')}?test={x.test_id}&new={x.pk}")
+    return render(request, "exam/staff/assignment_edit.html", {"form": form, "x": x, "started": started})
+
+
+@role_required("can_manage_candidates")
 @require_POST
 def assignment_reset_password(request, pk):
     x = get_object_or_404(Assignment, pk=pk)

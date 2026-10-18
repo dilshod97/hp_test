@@ -60,6 +60,7 @@ urlpatterns = [
     path("staff/candidates/import/", s.candidate_import, name="candidate_import"),
     path("staff/candidates/template.xlsx", s.candidate_template, name="candidate_template"),
     path("staff/candidates/<int:pk>/delete/", s.assignment_delete, name="assignment_delete"),
+    path("staff/candidates/<int:pk>/edit/", s.assignment_edit, name="assignment_edit"),
     path("staff/candidates/<int:pk>/new-password/", s.assignment_reset_password, name="assignment_reset_password"),
     path("staff/candidates/print/", s.candidate_print, name="candidate_print"),
     path("staff/results/", s.results, name="results"),

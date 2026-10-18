@@ -935,3 +935,28 @@ class BankMergeTests(BlockRuleTests):
         a = self.register("M", "T", "", "1990")
         self.client_class().post(reverse("exam_login"), {"login": a.login, "password": a.password})
         self.assertEqual(Attempt.objects.get(candidate=a.candidate).answers.filter(question__block=block).count(), 5)
+
+
+class AssignmentEditTests(Base):
+    def test_change_test_and_name(self):
+        other = Test.objects.create(title="Boshqa", is_active=True, created_by=self.admin, require_photo=False)
+        other.blocks.create(title="B", kind="logic", duration_minutes=5)
+        hr = User.objects.create_user("hr", password="x" * 10, role=User.Role.HR)
+        self.client.force_login(hr)
+        a = self.assignment
+        login, pw = a.login, a.password
+        r = self.client.post(reverse("assignment_edit", args=[a.pk]), {
+            "last_name": "Karimov", "first_name": "Aziz", "middle_name": "Olimovich", "birth": "1996", "test": other.pk})
+        self.assertEqual(r.status_code, 302)
+        a.refresh_from_db()
+        self.assertEqual((a.test_id, a.login, a.password, a.candidate.birth_year), (other.pk, login, pw, 1996))
+        self.client.logout()
+        self.assertRedirects(self.login_candidate(), reverse("exam_take"))
+        self.assertEqual(Attempt.objects.get().test, other)
+        # Бошлагандан кейин тест ўзгармайди
+        self.client.force_login(hr)
+        self.client.post(reverse("assignment_edit", args=[a.pk]), {
+            "last_name": "Karimov", "first_name": "Aziz", "middle_name": "Olimovich", "birth": "1996", "test": self.test.pk})
+        a.refresh_from_db()
+        self.assertEqual(a.test_id, other.pk)
+        self.assertContains(self.client.get(reverse("assignment_edit", args=[a.pk])), "тестни ўзгартириб бўлмайди")

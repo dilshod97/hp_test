@@ -1,0 +1,16 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}{{ x.candidate.full_name }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'candidate_list' %}?test={{ x.test_id }}">Номзодлар</a> /</div>
+<div class="page-head"><div><h1>{{ x.candidate.full_name }}</h1>
+  <div class="meta"><span>Логин: <b class="mono">{{ x.login }}</b></span><span>Парол: <b class="mono">{{ x.password }}</b></span>
+    {% if started %}<span class="badge warn">Тестни бошлаган</span>{% else %}<span class="badge plain">Бошламаган</span>{% endif %}</div></div></div>
+<div class="card" style="max-width:720px">
+  <form method="post">{% csrf_token %}
+    {% include "exam/_fields.html" %}
+    <div class="alert info small">Логин ва парол ўзгармайди — аввал чоп этилган варақча ишлайверади.</div>
+    <div class="form-actions"><button class="btn">Сақлаш</button><a class="btn ghost" href="{% url 'candidate_list' %}?test={{ x.test_id }}">Бекор қилиш</a></div>
+  </form>
+</div>
+{% endblock %}

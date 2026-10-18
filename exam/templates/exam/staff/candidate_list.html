@@ -44,12 +44,13 @@
       <td>{% if not row.attempt or row.attempt.status == 'in_progress' %}<input type="checkbox" name="id" value="{{ x.pk }}" form="print-form" class="pick-row">{% else %}<span title="Тестни топширган — варақча керак эмас" class="muted">—</span>{% endif %}</td>
       <td><b>{{ x.candidate.full_name }}</b></td>
       <td class="nowrap">{{ x.candidate.birth_display }}</td>
-      <td class="small">{{ x.test.title }}{% if not x.test.is_active %} <span class="badge off">нофаол</span>{% endif %}</td>
+      <td class="small">{% if not row.attempt %}<a href="{% url 'assignment_edit' x.pk %}" title="Тестни ўзгартириш" style="color:inherit;border-bottom:1px dashed var(--border-strong)">{{ x.test.title }}</a>{% else %}{{ x.test.title }}{% endif %}{% if not x.test.is_active %} <span class="badge off">нофаол</span>{% endif %}</td>
       <td class="mono" style="font-size:15px">{{ x.login }}</td>
       <td class="mono" style="font-size:15px">{{ x.password }}{% if x.locked_until %} <span class="badge danger" title="Кўп нотўғри уриниш">🔒</span>{% endif %}</td>
       <td>{% if row.attempt %}{% if user.is_superadmin %}<a href="{% url 'result_detail' row.attempt.pk %}">{% endif %}<span class="badge {{ row.attempt.status }}">{{ row.attempt.get_status_display }}</span>{% if user.is_superadmin %}</a>{% endif %}
           {% else %}<span class="badge plain">Бошламаган</span>{% endif %}</td>
       <td class="num nowrap">
+        <a class="btn ghost sm icon" href="{% url 'assignment_edit' x.pk %}" title="Таҳрирлаш (Ф.И.Ш., йил, тест)">{% icon "edit" %}</a>
         {% if not row.attempt or row.attempt.status == 'in_progress' %}<a class="btn ghost sm" href="{% url 'candidate_print' %}?id={{ x.pk }}" target="_blank" title="Варақчани чоп этиш">🖨</a>{% endif %}
         {% if not row.attempt %}
         <form method="post" action="{% url 'assignment_reset_password' x.pk %}" class="inline" data-confirm="Янги парол берилсинми? Эски варақча ишламай қолади.">{% csrf_token %}<button class="btn ghost sm" title="Янги парол">↻</button></form>
