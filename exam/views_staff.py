@@ -19,7 +19,7 @@ from .forms import (
     UserCreateForm, UserEditForm, UserPasswordForm,
 )
 from .models import (
-    OPTION_LETTERS, Assignment, Attempt, Block, Candidate, Kind, Question, QuestionBank, Review, ReviewAnswer, Test, User,
+    OPTION_LETTERS, Assignment, Attempt, Block, BlockRule, Candidate, Kind, Question, QuestionBank, Review, ReviewAnswer, Test, User,
 )
 
 
@@ -150,8 +150,12 @@ def test_copy(request, pk):
             nb = Block.objects.create(test=test, title=b.title, kind=b.kind, description=b.description,
                                       duration_minutes=b.duration_minutes, order=b.order,
                                       questions_per_candidate=b.questions_per_candidate)
+            rule_map = {r.pk: BlockRule.objects.create(block=nb, bank=r.bank, count=r.count) for r in b.rules.all()}
             for q in b.questions.all():
-                q.copy_to(block=nb)
+                c = q.copy_to(block=nb)
+                if q.rule_id:
+                    c.rule = rule_map[q.rule_id]
+                    c.save(update_fields=["rule"])
     messages.success(request, "Нусха яратилди. Уни таҳрирлаб, кейин фаол қилинг.")
     return redirect("test_detail", test.pk)
 
@@ -188,6 +192,55 @@ BLOCK_PRESETS = {
 }
 
 
+def _parse_rules(request, block=None):
+    """Формадаги «бўлим + сон» қаторлари → [(bank, count)], хатолар."""
+    rows, errors, seen = [], [], set()
+    banks = {str(b.pk): b for b in QuestionBank.objects.exclude(kind=Kind.INTERVIEW).annotate(n=Count("questions"))}
+    for bank_id, raw in zip(request.POST.getlist("rule_bank"), request.POST.getlist("rule_count")):
+        if not bank_id and not raw.strip():
+            continue
+        bank = banks.get(bank_id)
+        if bank is None:
+            errors.append("Бўлимни танланг.")
+            continue
+        if bank.pk in seen:
+            errors.append(f"«{bank.name}» икки марта танланган.")
+            continue
+        seen.add(bank.pk)
+        if not raw.strip().isdigit() or not 1 <= int(raw) <= bank.n:
+            errors.append(f"«{bank.name}»: 1 дан {bank.n} гача сон киритинг.")
+            continue
+        rows.append((bank, int(raw)))
+    return rows, errors
+
+
+def _apply_rules(block, rows):
+    keep = set()
+    for bank, count in rows:
+        rule = block.rules.filter(bank=bank).first()
+        if rule is None:
+            rule = BlockRule.objects.create(block=block, bank=bank, count=count)
+        elif rule.count != count:
+            rule.count = count
+            rule.save(update_fields=["count"])
+        rule.sync_pool()
+        keep.add(rule.pk)
+    block.rules.exclude(pk__in=keep).delete()  # олиб ташланган манбалар ва уларнинг захираси
+
+
+def _block_form_page(request, form, test, block=None):
+    rules = []
+    if request.method == "POST":
+        rules = [{"bank": b, "count": c} for b, c in zip(request.POST.getlist("rule_bank"), request.POST.getlist("rule_count")) if b or c]
+    elif block is not None:
+        rules = [{"bank": str(r.bank_id), "count": r.count} for r in block.rules.all()]
+    banks = QuestionBank.objects.exclude(kind=Kind.INTERVIEW).annotate(n=Count("questions")).order_by("order", "name")
+    return render(request, "exam/staff/block_form.html", {
+        "form": form, "test": test, "block": block, "banks": banks, "rules": rules or [{"bank": "", "count": ""}],
+        "title": f"Блок: {block}" if block else "Янги блок",
+    })
+
+
 @role_required("is_author")
 def block_create(request, test_pk):
     test = get_object_or_404(Test, pk=test_pk)
@@ -196,12 +249,20 @@ def block_create(request, test_pk):
     initial = {"order": test.blocks.count() + 1}
     initial.update(BLOCK_PRESETS.get(request.GET.get("preset"), {}))
     form = BlockForm(request.POST or None, initial=initial)
-    if request.method == "POST" and form.is_valid():
-        block = form.save(commit=False)
-        block.test = test
-        block.save()
-        return redirect("test_detail", test.pk)
-    return render(request, "exam/staff/form.html", {"form": form, "title": "Янги блок", "back": test})
+    if request.method == "POST":
+        rows, errors = _parse_rules(request)
+        for e in errors:
+            form.add_error(None, e)
+        if form.is_valid():
+            with transaction.atomic():
+                block = form.save(commit=False)
+                block.test = test
+                block.save()
+                _apply_rules(block, rows)
+            if rows:
+                messages.success(request, f"Блок яратилди: ҳар бир номзодга {sum(c for _, c in rows)} та тасодифий савол.")
+            return redirect("test_detail", test.pk)
+    return _block_form_page(request, form, test)
 
 
 @role_required("is_author")
@@ -210,10 +271,16 @@ def block_edit(request, pk):
     if guard := _locked_guard(request, block.test):
         return guard
     form = BlockForm(request.POST or None, instance=block)
-    if request.method == "POST" and form.is_valid():
-        form.save()
-        return redirect("test_detail", block.test_id)
-    return render(request, "exam/staff/form.html", {"form": form, "title": f"Блок: {block}", "back": block.test})
+    if request.method == "POST":
+        rows, errors = _parse_rules(request, block)
+        for e in errors:
+            form.add_error(None, e)
+        if form.is_valid():
+            with transaction.atomic():
+                form.save()
+                _apply_rules(block, rows)
+            return redirect("test_detail", block.test_id)
+    return _block_form_page(request, form, block.test, block)
 
 
 @role_required("is_author")

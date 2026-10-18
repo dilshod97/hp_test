@@ -835,3 +835,67 @@ class PerCandidateDrawTests(Base):
     def test_zero_means_all(self):
         self.assertFalse(self.practical.is_drawn)
         self.assertEqual(self.practical.per_candidate, 2)
+
+
+class BlockRuleTests(Base):
+    def make_bank(self, name, n, kind=Kind.LOGIC):
+        bank = QuestionBank.objects.create(name=name, kind=kind)
+        for i in range(n):
+            q = Question.objects.create(bank=bank, code=f"{name}{i}", title=f"{name} {i}", text=f"<p>{i}</p>", qtype="choice", max_score=1, order=i)
+            o = q.options.create(text="ha", order=1); q.options.create(text="yo'q", order=2)
+            q.correct_option = o; q.save()
+        return bank
+
+    def test_rules_create_draw_and_edit(self):
+        b1, b2 = self.make_bank("A", 20), self.make_bank("B", 20)
+        self.client.force_login(self.author)
+        r = self.client.post(reverse("block_create", args=[self.test.pk]), {
+            "title": "Aralash", "kind": "logic", "duration_minutes": 30, "order": 3,
+            "rule_bank": [b1.pk, b2.pk], "rule_count": ["5", "3"],
+        })
+        self.assertEqual(r.status_code, 302)
+        block = self.test.blocks.get(title="Aralash")
+        self.assertEqual(block.pool_size, 40)
+        self.assertEqual(block.per_candidate, 8)
+        self.assertEqual(block.max_per_candidate, 8)
+        self.assertTrue(block.is_drawn)
+        r = self.client.get(reverse("test_detail", args=[self.test.pk]))
+        self.assertContains(r, "A: 5 та")
+
+        sets = []
+        for n in range(6):
+            a = self.register(f"R{n}", "T", "", "1990")
+            c = self.client_class()
+            c.post(reverse("exam_login"), {"login": a.login, "password": a.password})
+            attempt = Attempt.objects.get(candidate=a.candidate)
+            got = attempt.answers.filter(question__block=block)
+            self.assertEqual(got.filter(question__rule__bank=b1).count(), 5)
+            self.assertEqual(got.filter(question__rule__bank=b2).count(), 3)
+            sets.append(frozenset(got.values_list("question_id", flat=True)))
+        self.assertGreater(len(set(sets)), 1)
+
+    def test_rule_validation_edit_and_remove(self):
+        b1, b2 = self.make_bank("A", 4), self.make_bank("B", 4)
+        self.client.force_login(self.author)
+        r = self.client.post(reverse("block_create", args=[self.test.pk]), {
+            "title": "X", "kind": "logic", "duration_minutes": 10, "order": 3, "rule_bank": [b1.pk], "rule_count": ["9"]})
+        self.assertContains(r, "1 дан 4 гача")
+        self.client.post(reverse("block_create", args=[self.test.pk]), {
+            "title": "X", "kind": "logic", "duration_minutes": 10, "order": 3,
+            "rule_bank": [b1.pk, b2.pk], "rule_count": ["2", "2"]})
+        block = self.test.blocks.get(title="X")
+        self.client.post(reverse("block_edit", args=[block.pk]), {
+            "title": "X", "kind": "logic", "duration_minutes": 10, "order": 3, "rule_bank": [b1.pk], "rule_count": ["3"]})
+        block.refresh_from_db()
+        self.assertEqual(block.pool_size, 4)  # B олиб ташланди
+        self.assertEqual(block.per_candidate, 3)
+
+    def test_copy_keeps_rules(self):
+        b1 = self.make_bank("A", 10)
+        self.client.force_login(self.author)
+        self.client.post(reverse("block_create", args=[self.test.pk]), {
+            "title": "X", "kind": "logic", "duration_minutes": 10, "order": 3, "rule_bank": [b1.pk], "rule_count": ["4"]})
+        self.client.post(reverse("test_copy", args=[self.test.pk]))
+        copy = Test.objects.exclude(pk=self.test.pk).get()
+        nb = copy.blocks.get(title="X")
+        self.assertEqual((nb.pool_size, nb.per_candidate), (10, 4))

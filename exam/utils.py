@@ -59,13 +59,13 @@ def create_attempt(candidate, test, ip=None):
     attempt = Attempt.objects.create(candidate=candidate, test=test, ip_address=ip)
     rng = random.SystemRandom()
     answers = []
-    for block in test.blocks.prefetch_related("questions__options"):
-        questions = list(block.questions.all())
-        if block.is_drawn:
-            # Ҳар бир номзодга ўзининг тасодифий тўплами
-            questions = rng.sample(questions, block.per_candidate)
-            if not test.shuffle_questions:
-                questions.sort(key=lambda q: (q.order, q.pk))
+    for block in test.blocks.all():
+        # Ҳар бир номзодга ўзининг тасодифий тўплами (манба қоидалари ёки «ҳар номзодга N та» бўйича)
+        questions = []
+        for pool, n in block.draw_plan():
+            questions += pool if n >= len(pool) else rng.sample(pool, n)
+        if not test.shuffle_questions:
+            questions.sort(key=lambda q: (q.order, q.pk))
         if test.shuffle_questions:
             rng.shuffle(questions)
         options = {}

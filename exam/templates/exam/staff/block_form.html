@@ -1,0 +1,68 @@
+{% extends "exam/base_staff.html" %}
+{% load exam_tags %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="{% url 'test_detail' test.pk %}">{{ test }}</a> /</div>
+<div class="page-head"><div><h1>{{ title }}</h1></div></div>
+<form method="post" style="max-width:920px">{% csrf_token %}
+  <div class="card">
+    <h2>Блок</h2>
+    {% include "exam/_fields.html" %}
+  </div>
+  <div class="card">
+    <h2>Саволлар қаердан олинсин?</h2>
+    <p class="muted small">Ҳар бир номзодга кўрсатилган бўлимлардан шунча савол <b>тасодифий</b> танланади — номзодларга ҳар хил савол тушади.</p>
+    <div id="rules" class="stack">
+      {% for r in rules %}
+      <div class="rule row" style="flex-wrap:nowrap;gap:8px">
+        <select name="rule_bank" style="flex:1">
+          <option value="">— бўлимни танланг —</option>
+          {% for b in banks %}<option value="{{ b.pk }}" data-n="{{ b.n }}" {% if r.bank == b.pk|stringformat:'s' %}selected{% endif %}>{{ b.name }} ({{ b.n }} та){% if b.source %} — {{ b.source|truncatechars:30 }}{% endif %}</option>{% endfor %}
+        </select>
+        <input type="number" name="rule_count" min="1" value="{{ r.count }}" placeholder="сон" style="width:110px;text-align:center;font-weight:700"> <span class="muted small nowrap">та савол</span>
+        <button type="button" class="btn ghost sm icon" data-remove title="Олиб ташлаш">{% icon "trash" %}</button>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button type="button" class="btn secondary sm" id="add-rule">{% icon "plus" %} Манба қўшиш</button>
+      <span class="spacer"></span>
+      <span class="muted small">Ҳар бир номзодга жами: <b id="total">0</b> та савол</span>
+    </div>
+    <p class="muted small" style="margin-top:14px;margin-bottom:0">Манба бермасангиз, блокка саволларни кейин «+ Базадан» ёки «+ Савол» орқали қўлда қўшасиз — улар ҳамма номзодга бир хил берилади.</p>
+  </div>
+  <div class="form-actions">
+    <button class="btn lg">Сақлаш</button>
+    <a class="btn ghost" href="{% url 'test_detail' test.pk %}">Бекор қилиш</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const box = document.getElementById('rules');
+  const tpl = box.querySelector('.rule').cloneNode(true);
+  tpl.querySelector('select').value = ''; tpl.querySelector('input').value = '';
+  function total() {
+    let t = 0;
+    box.querySelectorAll('.rule').forEach(r => {
+      const sel = r.querySelector('select'), inp = r.querySelector('input');
+      const n = sel.selectedOptions[0] && sel.selectedOptions[0].dataset.n;
+      inp.max = n || '';
+      if (n && !inp.value) inp.placeholder = 'макс. ' + n;
+      t += parseInt(inp.value || 0, 10);
+    });
+    document.getElementById('total').textContent = t;
+  }
+  document.getElementById('add-rule').onclick = () => { box.appendChild(tpl.cloneNode(true)); total(); };
+  box.addEventListener('click', e => {
+    if (!e.target.closest('[data-remove]')) return;
+    const row = e.target.closest('.rule');
+    if (box.querySelectorAll('.rule').length > 1) row.remove(); else { row.querySelector('select').value = ''; row.querySelector('input').value = ''; }
+    total();
+  });
+  box.addEventListener('input', total); box.addEventListener('change', total);
+  total();
+})();
+</script>
+{% endblock %}

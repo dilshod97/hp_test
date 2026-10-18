@@ -170,23 +170,72 @@ class Block(models.Model):
         return self.questions.count()
 
     @property
+    def rule_list(self):
+        return list(self.rules.select_related("bank"))
+
+    def draw_plan(self):
+        """[(саволлар, нечтаси)] — номзодга бериладиган тўплам режаси."""
+        rules = self.rule_list
+        if rules:
+            manual = list(self.questions.filter(rule=None))
+            plan = [(manual, len(manual))] if manual else []
+            for r in rules:
+                pool = list(self.questions.filter(rule=r))
+                plan.append((pool, min(r.count, len(pool))))
+            return plan
+        pool = list(self.questions.all())
+        n = min(self.questions_per_candidate, len(pool)) if self.questions_per_candidate else len(pool)
+        return [(pool, n)]
+
+    @property
     def per_candidate(self):
-        n = self.pool_size
-        return min(self.questions_per_candidate, n) if self.questions_per_candidate else n
+        return sum(n for _, n in self.draw_plan())
 
     @property
     def is_drawn(self):
-        return bool(self.questions_per_candidate) and self.questions_per_candidate < self.pool_size
+        return any(n < len(pool) for pool, n in self.draw_plan())
 
     @property
     def max_per_candidate(self):
-        scores = [q.max_score for q in self.questions.all()]
-        if not scores:
-            return Decimal(0)
-        if not self.is_drawn:
-            return sum(scores, Decimal(0))
-        # Саволлар баллари бир хил бўлса аниқ; ҳар хил бўлса — ўртача
-        return (sum(scores, Decimal(0)) / len(scores) * self.per_candidate).quantize(Decimal("0.01"))
+        total = Decimal(0)
+        for pool, n in self.draw_plan():
+            if not pool or not n:
+                continue
+            scores = [q.max_score for q in pool]
+            if n == len(pool):
+                total += sum(scores, Decimal(0))
+            else:  # баллари бир хил бўлса аниқ; ҳар хил бўлса — ўртача
+                total += sum(scores, Decimal(0)) / len(scores) * n
+        return total.quantize(Decimal("0.01"))
+
+
+class BlockRule(models.Model):
+    """Блок учун савол манбаи: «шу бўлимдан ҳар бир номзодга N та тасодифий»."""
+    block = models.ForeignKey(Block, on_delete=models.CASCADE, related_name="rules")
+    bank = models.ForeignKey(QuestionBank, on_delete=models.PROTECT, related_name="rules", verbose_name="Бўлим")
+    count = models.PositiveIntegerField("Нечта савол")
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.bank.name}: {self.count}"
+
+    @property
+    def pool(self):
+        return self.block.questions.filter(rule=self)
+
+    def sync_pool(self):
+        """Бўлимдаги саволларни блок захирасига нусхалайди (янгиларини қўшади)."""
+        have = set(self.pool.exclude(source=None).values_list("source_id", flat=True))
+        start = (self.block.questions.aggregate(m=models.Max("order"))["m"] or 0) + 1
+        added = 0
+        for i, q in enumerate(self.bank.questions.exclude(pk__in=have).prefetch_related("options", "criteria")):
+            copy = q.copy_to(block=self.block, order=start + i)
+            copy.rule = self
+            copy.save(update_fields=["rule"])
+            added += 1
+        return added
 
 
 class Question(models.Model):
@@ -202,6 +251,8 @@ class Question(models.Model):
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="copies",
         help_text="Базадаги асл савол",
     )
+    rule = models.ForeignKey("BlockRule", on_delete=models.CASCADE, null=True, blank=True, related_name="questions",
+                             help_text="Қайси манба қоидаси орқали қўшилган (номзодга тасодифий танланади)")
     code = models.CharField(max_length=20, blank=True, editable=False)  # импорт учун ички калит
     title = models.CharField("Сарлавҳа", max_length=255, blank=True)
     text = models.TextField("Савол матни")

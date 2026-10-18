@@ -157,19 +157,12 @@ class TestCheckersForm(forms.ModelForm):
 class BlockForm(forms.ModelForm):
     class Meta:
         model = Block
-        fields = ["title", "kind", "description", "duration_minutes", "questions_per_candidate", "order"]
+        fields = ["title", "kind", "description", "duration_minutes", "order"]
         widgets = {
             "title": forms.TextInput(attrs={"placeholder": "Масалан: Мантиқий фикрлаш тести"}),
             "description": forms.Textarea(attrs={"rows": 3, "placeholder": "Номзод блок бошида шу матнни кўради"}),
         }
         help_texts = {"order": "Блоклар шу тартибда кўрсатилади (1, 2, 3...)"}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["questions_per_candidate"].required = False
-
-    def clean_questions_per_candidate(self):
-        return self.cleaned_data.get("questions_per_candidate") or 0
 
     def clean_duration_minutes(self):
         m = self.cleaned_data["duration_minutes"]
