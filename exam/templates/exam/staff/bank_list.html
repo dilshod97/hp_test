@@ -7,11 +7,11 @@
     <a class="btn secondary" href="{% url 'bank_create' %}">{% icon "plus" %} Янги бўлим</a></div></div>
 {% regroup banks by get_kind_display as groups %}
 {% for g in groups %}
-<div class="section-title">{{ g.grouper }}</div>
+<div class="section-title">{{ g.grouper }} · {{ g.list|length }} та бўлим</div>
 <div class="grid cols-2" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
   {% for b in g.list %}
   <a class="card tight" href="{% url 'bank_detail' b.pk %}" style="display:block;color:inherit;text-decoration:none;margin:0">
-    <div class="row between"><b>{{ b.name }}</b>{% icon "right" %}</div>
+    <div class="row between" style="flex-wrap:nowrap"><b style="min-width:0">{{ b.name }}</b>{% icon "right" %}</div>
     <div class="muted small" style="margin-top:6px">{{ b.n }} та савол{% if b.source %} · {{ b.source|truncatechars:48 }}{% endif %}</div>
   </a>
   {% endfor %}

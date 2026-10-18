@@ -899,3 +899,15 @@ class BlockRuleTests(Base):
         copy = Test.objects.exclude(pk=self.test.pk).get()
         nb = copy.blocks.get(title="X")
         self.assertEqual((nb.pool_size, nb.per_candidate), (10, 4))
+
+
+class BankListTests(Base):
+    def test_grouped_by_kind(self):
+        for name, kind in [("L2", Kind.LOGIC), ("P1", Kind.PRACTICAL), ("L1", Kind.LOGIC), ("P2", Kind.PRACTICAL)]:
+            QuestionBank.objects.create(name=name, kind=kind)
+        self.client.force_login(self.author)
+        html = self.client.get(reverse("bank_list")).content.decode()
+        self.assertEqual(html.count("Мантиқий тест · "), 1)  # битта гуруҳ
+        self.assertLess(html.index(">P1<"), html.index(">P2<"))
+        self.assertLess(html.index(">P2<"), html.index(">L1<"))
+        self.assertLess(html.index(">L1<"), html.index(">L2<"))

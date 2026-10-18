@@ -412,7 +412,15 @@ def question_delete(request, pk):
 
 @role_required("is_author")
 def bank_list(request):
-    banks = QuestionBank.objects.annotate(n=Count("questions"))
+    from django.db.models import Case, IntegerField, Value, When
+
+    # Турлари бўйича гуруҳлаб: амалий → мантиқий → суҳбат → бошқа; ичида номи бўйича
+    kind_rank = Case(
+        When(kind=Kind.PRACTICAL, then=Value(0)), When(kind=Kind.LOGIC, then=Value(1)),
+        When(kind=Kind.INTERVIEW, then=Value(2)), default=Value(3), output_field=IntegerField(),
+    )
+    banks = (QuestionBank.objects.annotate(n=Count("questions"), rank=kind_rank)
+             .order_by("rank", "name", "source"))
     return render(request, "exam/staff/bank_list.html", {"banks": banks})
 
 
