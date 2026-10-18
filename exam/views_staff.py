@@ -607,10 +607,11 @@ def candidate_print(request):
     else:
         qs = qs.none()
     done = set(Attempt.objects.exclude(status=Attempt.Status.IN_PROGRESS).values_list("candidate_id", "test_id"))
-    slips = [x for x in qs if (x.candidate_id, x.test_id) not in done]
+    rows = list(qs)
+    slips = [x for x in rows if (x.candidate_id, x.test_id) not in done]
+    skipped = [x for x in rows if (x.candidate_id, x.test_id) in done]
     exam_url = request.build_absolute_uri(reverse("exam_login"))
-    return render(request, "exam/staff/candidate_print.html", {"slips": slips, "exam_url": exam_url,
-                                                               "skipped": len(qs) - len(slips) if not ids else 0})
+    return render(request, "exam/staff/candidate_print.html", {"slips": slips, "exam_url": exam_url, "skipped": skipped})
 
 
 @role_required("can_manage_candidates")

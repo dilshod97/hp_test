@@ -465,6 +465,8 @@ class RegistrationTests(Base):
         self.client.force_login(self.admin)
         r = self.client.get(reverse("candidate_print") + f"?test={self.test.pk}")
         self.assertNotContains(r, self.assignment.password)
+        r = self.client.get(reverse("candidate_print") + f"?id={self.assignment.pk}")
+        self.assertContains(r, "тестни топшириб бўлган")
 
     def test_excel_import(self):
         from io import BytesIO

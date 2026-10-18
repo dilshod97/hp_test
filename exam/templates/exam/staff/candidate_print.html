@@ -16,13 +16,13 @@
   .slip .creds span { font-size: 10pt; color: #64748b; }
   .slip .creds b { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 20pt; letter-spacing: .12em; }
   .slip .how { font-size: 8.5pt; color: #475569; margin-top: auto; line-height: 1.35; }
-  .empty { text-align: center; padding: 60px; color: #64748b; grid-column: 1 / -1; }
+  .empty { text-align: center; padding: 48px 40px; color: #475569; grid-column: 1 / -1; line-height: 1.6; }
   @media print { body { background: #fff; } .bar { display: none; } .sheet { margin: 0; max-width: none; } }
 </style></head>
 <body>
 <div class="bar">
   <button onclick="window.print()">🖨 Чоп этиш</button>
-  <span>{{ slips|length }} та варақча{% if skipped %} · тестни топширган {{ skipped }} та номзод чиқарилмади{% endif %}</span>
+  <span>{{ slips|length }} та варақча{% if skipped %} · тестни топширган {{ skipped|length }} та номзод чиқарилмади{% endif %}</span>
   <a href="javascript:history.back()">← Орқага</a>
 </div>
 <div class="sheet">
@@ -35,6 +35,10 @@
     <div class="how">Компьютердаги «test» белгисини очинг, логин ва паролни киритиб «Тестни бошлаш» ни босинг.
       Варақчани бошқаларга берманг. Тест бир марта топширилади.</div>
   </div>
-  {% empty %}<div class="empty">Чоп этиш учун номзод йўқ.</div>{% endfor %}
+  {% empty %}<div class="empty">
+    {% if skipped %}<b>Варақча чиқарилмади:</b> {% for x in skipped %}{{ x.candidate.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      тестни топшириб бўлган — унинг логини энди ишламайди.<br><br>Қайта топшириш керак бўлса, суперадмин рухсат беради
+      (Натижалар → номзод → «Қайта топширишга рухсат»). Шундан кейин варақча яна чиқади.
+    {% else %}Чоп этиш учун номзод йўқ.{% endif %}</div>{% endfor %}
 </div>
 </body></html>

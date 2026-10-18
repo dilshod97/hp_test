@@ -41,7 +41,7 @@
     <tbody>
     {% for row in rows %}{% with x=row.x %}
     <tr{% if new_id == x.pk|stringformat:'s' %} style="background:#f0fdf4"{% endif %}>
-      <td><input type="checkbox" name="id" value="{{ x.pk }}" form="print-form" class="pick-row"></td>
+      <td>{% if not row.attempt or row.attempt.status == 'in_progress' %}<input type="checkbox" name="id" value="{{ x.pk }}" form="print-form" class="pick-row">{% else %}<span title="Тестни топширган — варақча керак эмас" class="muted">—</span>{% endif %}</td>
       <td><b>{{ x.candidate.full_name }}</b></td>
       <td class="nowrap">{{ x.candidate.birth_display }}</td>
       <td class="small">{{ x.test.title }}{% if not x.test.is_active %} <span class="badge off">нофаол</span>{% endif %}</td>
