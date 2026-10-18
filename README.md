@@ -9,7 +9,8 @@ Ichki tarmoqda ishlaydi, internet talab qilmaydi. Nomzodlar testni **Safe Exam B
 | **Superadmin** | Foydalanuvchilarni yaratadi, nomzodlar ro'yxatini yuritadi, testga ekspertlar biriktiradi, suhbat va himoya ballarini kiritadi, natijalarni Excel'ga yuklaydi | Hammasini: F.I.Sh., javoblar, har bir ekspertning mezon bo'yicha ballari |
 | **Test tuzuvchi** | Savollar bazasini yuritadi, test → bloklar → savollar (bazadan yoki yangi) tuzadi | Testlar va baza (kalit, mezonlar bilan) |
 | **Tekshiruvchi (ekspert)** | O'ziga biriktirilgan yozma ishlarni mezonlar bo'yicha baholaydi | Faqat anonim kod (`K-434563`). Nomzod ismi va boshqa ekspertning bali ko'rinmaydi |
-| **Nomzod** | Ro'yxatda bo'lsa, F.I.Sh. + tug'ilgan sana bilan kiradi va testni yechadi | Faqat savollar. Kalit va mezonlar ko'rsatilmaydi |
+| **Кадрлар бўлими (HR)** | Nomzodlarni kiritadi (qo'lda yoki Excel), login-parol varaqchalarini chop etadi | Faqat nomzodlar ro'yxati |
+| **Nomzod** | HR bergan varaqchadagi **login va parol** bilan kiradi va testni yechadi | Faqat savollar. Kalit va mezonlar ko'rsatilmaydi |
 
 ## Tanlov materiallari (Hisob palatasi)
 
@@ -64,11 +65,12 @@ Biletdagi topshiriqlarni hujjat tavsiyasiga ko'ra tanladim: auditor uchun hisob-
 
 1. **Test tuzuvchi** namuna testni ko'rib chiqadi, kerak bo'lsa topshiriqlarni almashtiradi va testni **Фаол** qiladi.
 2. **Superadmin** testga ekspertlarni biriktiradi va **Номзодлар** sahifasida nomzodlarni testga yozadi: qo'lda yoki Excel'dan (ustunlar: Фамилия, Исм, Отасининг исми, Туғилган сана; namuna faylni o'sha sahifadan olish mumkin).
-3. **Nomzod** faqat F.I.Sh. va tug'ilgan sanasini yozadi — tizim uning testini o'zi topadi. Ro'yxatda yo'q odam kira olmaydi. Nomzodga bir nechta faol test biriktirilgan bo'lsa, qaysi birini boshlashni tanlaydi. Keyin testni yechadi:
+3. **HR** nomzodni kiritadi (F.I.Sh. va tug'ilgan yili yoki sanasi). Tizim unga **6 xonali login va parol** beradi. HR varaqchani chop etib (bittadan yoki «Барчасини чоп этиш» — A4 ga 8 tadan) nomzodga beradi.
+   **Nomzod** varaqchadagi login va parol bilan kiradi. 5 marta noto'g'ri parol kiritilsa, login 10 daqiqaga bloklanadi; HR «↻» bilan yangi parol bera oladi. Keyin testni yechadi:
    - Bloklar ketma-ket ochiladi, har birining o'z taymeri bor. Vaqt **serverda** hisoblanadi.
    - Savollar aralashtiriladi. Variantlar А–Д tartibida qoladi, chunki ba'zi variantlar boshqa harflarga havola qiladi.
    - Har bir javob darhol serverga saqlanadi. Kompyuter o'chib qolsa, nomzod qayta kirib davom etadi.
-   - Yopilgan blokka qaytib bo'lmaydi. Bitta testni ikki marta topshirib bo'lmaydi.
+   - Yopilgan blokka qaytib bo'lmaydi. Test topshirilgach, o'sha login bilan qayta kirib bo'lmaydi — **qayta topshirishga faqat superadmin ruxsat beradi** (Natijalar → nomzod → «Қайта топширишга рухсат»; avvalgi natija o'chiriladi).
 
 Interfeys o'zbek tilida, kirill yozuvida.
 4. **Ekspertlar** yozma ishlarni baholaydi. **Superadmin** suhbat va himoya ballarini kiritadi.

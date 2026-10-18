@@ -3,18 +3,18 @@
 {% block title %}Номзодлар{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Номзодлар</h1><div class="sub">Фақат шу рўйхатдаги номзодлар тестни бошлай олади. Номзод Ф.И.Ш. ва туғилган санасини ёзади — тизим унинг тестини ўзи топади.</div></div>
+  <div><h1>Номзодлар</h1><div class="sub">Номзод қўшилганда унга логин ва парол берилади. Варақчани чоп этиб номзодга беринг — у шу логин ва парол билан тестга киради.</div></div>
   <div class="actions">
     <button class="btn secondary" type="button" onclick="document.getElementById('import').classList.toggle('hidden')">{% icon "upload" %} Excel'дан юклаш</button>
     <button class="btn" type="button" onclick="document.getElementById('add').classList.toggle('hidden')">{% icon "plus" %} Номзод қўшиш</button>
   </div>
 </div>
 
-<div class="card hidden" id="add">
+<div class="card{% if not form.errors and rows %} hidden{% endif %}" id="add">
   <h2>Номзод қўшиш</h2>
   <form method="post" action="{% url 'candidate_add' %}">{% csrf_token %}
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px">{% include "exam/_fields.html" with form=form %}</div>
-    <button class="btn">Қўшиш</button>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0 16px">{% include "exam/_fields.html" with form=form %}</div>
+    <button class="btn">{% icon "plus" %} Қўшиш ва логин бериш</button>
   </form>
 </div>
 <div class="card hidden" id="import">
@@ -25,27 +25,52 @@
   </form>
 </div>
 
+<form method="get" action="{% url 'candidate_print' %}" target="_blank" id="print-form"></form>
 <div class="card flush">
   <form class="toolbar" method="get">
     <select name="test" onchange="this.form.submit()"><option value="">Барча тестлар</option>
       {% for t in tests %}<option value="{{ t.pk }}" {% if params.test == t.pk|stringformat:'s' %}selected{% endif %}>{{ t.title }}</option>{% endfor %}</select>
-    <input class="search" type="text" name="q" placeholder="Фамилия ёки исм бўйича қидириш" value="{{ params.q }}">
+    <input class="search" type="text" name="q" placeholder="Фамилия, исм ёки логин" value="{{ params.q }}">
     <button class="btn secondary">{% icon "search" %} Қидириш</button>
+    <span class="spacer"></span>
+    <button class="btn secondary" type="submit" form="print-form" id="print-selected" disabled>🖨 Танланганларни чоп этиш</button>
+    {% if params.test %}<a class="btn" href="{% url 'candidate_print' %}?test={{ params.test }}" target="_blank">🖨 Барчасини чоп этиш</a>{% endif %}
   </form>
   <div class="table-wrap"><table>
-    <thead><tr><th>№</th><th>Ф.И.Ш.</th><th>Туғилган сана</th><th>Тест</th><th>Ҳолат</th><th></th></tr></thead>
+    <thead><tr><th style="width:36px"><input type="checkbox" id="check-all" title="Ҳаммасини белгилаш"></th><th>Ф.И.Ш.</th><th>Туғилган</th><th>Тест</th><th>Логин</th><th>Парол</th><th>Ҳолат</th><th></th></tr></thead>
     <tbody>
     {% for row in rows %}{% with x=row.x %}
-    <tr>
-      <td class="muted">{{ forloop.counter }}</td>
+    <tr{% if new_id == x.pk|stringformat:'s' %} style="background:#f0fdf4"{% endif %}>
+      <td><input type="checkbox" name="id" value="{{ x.pk }}" form="print-form" class="pick-row"></td>
       <td><b>{{ x.candidate.full_name }}</b></td>
-      <td>{{ x.candidate.birth_date|date:"d.m.Y" }}</td>
+      <td class="nowrap">{{ x.candidate.birth_display }}</td>
       <td class="small">{{ x.test.title }}{% if not x.test.is_active %} <span class="badge off">нофаол</span>{% endif %}</td>
-      <td>{% if row.attempt %}<a href="{% url 'result_detail' row.attempt.pk %}"><span class="badge {{ row.attempt.status }}">{{ row.attempt.get_status_display }}</span></a>{% else %}<span class="badge plain">Бошламаган</span>{% endif %}</td>
-      <td class="num">{% if not row.attempt %}<form method="post" action="{% url 'assignment_delete' x.pk %}" class="inline" data-danger data-confirm="{{ x.candidate.full_name }} рўйхатдан ўчирилсинми?">{% csrf_token %}<button class="btn ghost sm icon" title="Рўйхатдан ўчириш">{% icon "trash" %}</button></form>{% endif %}</td>
+      <td class="mono" style="font-size:15px">{{ x.login }}</td>
+      <td class="mono" style="font-size:15px">{{ x.password }}{% if x.locked_until %} <span class="badge danger" title="Кўп нотўғри уриниш">🔒</span>{% endif %}</td>
+      <td>{% if row.attempt %}{% if user.is_superadmin %}<a href="{% url 'result_detail' row.attempt.pk %}">{% endif %}<span class="badge {{ row.attempt.status }}">{{ row.attempt.get_status_display }}</span>{% if user.is_superadmin %}</a>{% endif %}
+          {% else %}<span class="badge plain">Бошламаган</span>{% endif %}</td>
+      <td class="num nowrap">
+        {% if not row.attempt or row.attempt.status == 'in_progress' %}<a class="btn ghost sm" href="{% url 'candidate_print' %}?id={{ x.pk }}" target="_blank" title="Варақчани чоп этиш">🖨</a>{% endif %}
+        {% if not row.attempt %}
+        <form method="post" action="{% url 'assignment_reset_password' x.pk %}" class="inline" data-confirm="Янги парол берилсинми? Эски варақча ишламай қолади.">{% csrf_token %}<button class="btn ghost sm" title="Янги парол">↻</button></form>
+        <form method="post" action="{% url 'assignment_delete' x.pk %}" class="inline" data-danger data-confirm="{{ x.candidate.full_name }} рўйхатдан ўчирилсинми?">{% csrf_token %}<button class="btn ghost sm icon" title="Рўйхатдан ўчириш">{% icon "trash" %}</button></form>
+        {% endif %}
+      </td>
     </tr>
-    {% endwith %}{% empty %}<tr><td colspan="6"><div class="empty">{% icon "id" %}<div>Рўйхат бўш. «Номзод қўшиш» ёки «Excel'дан юклаш» ни босинг.</div></div></td></tr>{% endfor %}
+    {% endwith %}{% empty %}<tr><td colspan="8"><div class="empty">{% icon "id" %}<div>Рўйхат бўш. «Номзод қўшиш» ёки «Excel'дан юклаш» ни босинг.</div></div></td></tr>{% endfor %}
     </tbody>
   </table></div>
 </div>
+<p class="muted small">Тестни топширган номзод шу логин билан қайта кира олмайди. Қайта топширишга фақат суперадмин рухсат беради (Натижалар → номзод → «Қайта топширишга рухсат»).</p>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const boxes = () => Array.from(document.querySelectorAll('.pick-row'));
+  const btn = document.getElementById('print-selected');
+  const sync = () => { const n = boxes().filter(b => b.checked).length; btn.disabled = !n; btn.textContent = '🖨 Танланганларни чоп этиш' + (n ? ' (' + n + ')' : ''); };
+  document.getElementById('check-all').addEventListener('change', e => { boxes().forEach(b => b.checked = e.target.checked); sync(); });
+  document.addEventListener('change', e => { if (e.target.classList.contains('pick-row')) sync(); });
+})();
+</script>
 {% endblock %}

@@ -16,7 +16,9 @@
       {% with u=request.resolver_match.url_name %}
       {% if user.is_superadmin %}
         <a href="{% url 'results' %}" class="{% if u == 'results' or u == 'result_detail' %}active{% endif %}">{% icon "chart" %} Натижалар</a>
-        <a href="{% url 'candidate_list' %}" class="{% if 'candidate' in u %}active{% endif %}">{% icon "id" %} Номзодлар</a>
+      {% endif %}
+      {% if user.can_manage_candidates %}
+        <a href="{% url 'candidate_list' %}" class="{% if 'candidate' in u or 'assignment' in u %}active{% endif %}">{% icon "id" %} Номзодлар</a>
       {% endif %}
       {% if user.is_author %}
         <a href="{% url 'test_list' %}" class="{% if 'test' in u or 'block' in u or u == 'question_create' %}active{% endif %}">{% icon "file" %} Тестлар</a>

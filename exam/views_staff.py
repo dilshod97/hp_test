@@ -29,11 +29,13 @@ class StaffLoginView(auth_views.LoginView):
     redirect_authenticated_user = True
 
 
-@role_required("is_superadmin", "is_author", "is_checker")
+@role_required("is_superadmin", "is_author", "is_checker", "is_hr")
 def dashboard(request):
     user = request.user
     if user.is_superadmin:
         return redirect("results")
+    if user.is_hr:
+        return redirect("candidate_list")
     if user.is_author:
         return redirect("test_list")
     return redirect("check_list")
@@ -506,66 +508,73 @@ def test_checkers(request, pk):
     return render(request, "exam/staff/form.html", {"form": form, "title": f"Экспертлар: {test}", "back": test})
 
 
-# ---------------------------------------------------------------- Номзодлар рўйхати
+# ---------------------------------------------------------------- Номзодлар рўйхати (HR ва суперадмин)
 
 def _register(last, first, middle, born, test):
-    key = Candidate.make_identity_key(last, first, middle, born)
+    """born = (сана ёки None, йил). Қайтаради: (Assignment, янгими)."""
+    born_date, year = born
+    key = Candidate.make_identity_key(last, first, middle, born_date or year)
     candidate, _ = Candidate.objects.get_or_create(
         identity_key=key,
-        defaults={"last_name": last.strip(), "first_name": first.strip(), "middle_name": middle.strip(), "birth_date": born},
+        defaults={"last_name": last.strip(), "first_name": first.strip(), "middle_name": middle.strip(),
+                  "birth_date": born_date, "birth_year": year},
     )
-    _, created = Assignment.objects.get_or_create(candidate=candidate, test=test)
-    return created
+    return Assignment.objects.get_or_create(candidate=candidate, test=test)
 
 
-@role_required("is_superadmin")
+@role_required("can_manage_candidates")
 def candidate_list(request):
-    qs = Assignment.objects.select_related("candidate", "test")
+    qs = Assignment.objects.select_related("candidate", "test").order_by("-created_at")
     test_id = request.GET.get("test")
     search = request.GET.get("q", "").strip()
     if test_id:
         qs = qs.filter(test_id=test_id)
     if search:
-        qs = qs.filter(Q(candidate__last_name__icontains=search) | Q(candidate__first_name__icontains=search))
+        qs = qs.filter(Q(candidate__last_name__icontains=search) | Q(candidate__first_name__icontains=search)
+                       | Q(login=search))
     attempts = {(a.candidate_id, a.test_id): a for a in Attempt.objects.filter(
         candidate_id__in=qs.values("candidate_id"))}
     rows = [{"x": x, "attempt": attempts.get((x.candidate_id, x.test_id))} for x in qs]
     return render(request, "exam/staff/candidate_list.html", {
         "rows": rows, "tests": Test.objects.all(), "params": request.GET,
         "form": CandidateForm(initial={"test": test_id}), "import_form": CandidateImportForm(initial={"test": test_id}),
+        "new_id": request.GET.get("new"),
     })
 
 
-@role_required("is_superadmin")
+@role_required("can_manage_candidates")
 @require_POST
 def candidate_add(request):
     form = CandidateForm(request.POST)
     if form.is_valid():
         d = form.cleaned_data
-        if _register(d["last_name"], d["first_name"], d["middle_name"], d["birth_date"], d["test"]):
-            messages.success(request, f"{d['last_name']} {d['first_name']} рўйхатга қўшилди.")
+        assignment, created = _register(d["last_name"], d["first_name"], d["middle_name"], d["birth"], d["test"])
+        if created:
+            messages.success(request, f"{d['last_name']} {d['first_name']} рўйхатга қўшилди. "
+                                      f"Логин: {assignment.login}, парол: {assignment.password}")
         else:
             messages.info(request, "Бу номзод шу тест рўйхатида аллақачон бор.")
-    else:
-        messages.error(request, "Маълумотлар нотўғри: " + "; ".join(e for errs in form.errors.values() for e in errs))
+        return redirect(f"{reverse('candidate_list')}?test={d['test'].pk}&new={assignment.pk}")
+    messages.error(request, "Маълумотлар нотўғри: " + "; ".join(e for errs in form.errors.values() for e in errs))
     return redirect(f"{reverse('candidate_list')}?test={request.POST.get('test', '')}")
 
 
-@role_required("is_superadmin")
+@role_required("can_manage_candidates")
 @require_POST
 def candidate_import(request):
     form = CandidateImportForm(request.POST, request.FILES)
     if form.is_valid():
         test = form.cleaned_data["test"]
         with transaction.atomic():
-            added = sum(_register(*row, test) for row in form.rows)
-        messages.success(request, f"Файлдан {len(form.rows)} та номзод ўқилди, {added} та янги қўшилди.")
+            added = sum(_register(*row, test)[1] for row in form.rows)
+        messages.success(request, f"Файлдан {len(form.rows)} та номзод ўқилди, {added} та янги қўшилди. "
+                                  f"Логин ва паролларни «Барчасини чоп этиш» орқали чиқаринг.")
     else:
         messages.error(request, " ".join(e for errs in form.errors.values() for e in errs))
     return redirect(f"{reverse('candidate_list')}?test={request.POST.get('test', '')}")
 
 
-@role_required("is_superadmin")
+@role_required("can_manage_candidates")
 @require_POST
 def assignment_delete(request, pk):
     x = get_object_or_404(Assignment, pk=pk)
@@ -577,15 +586,42 @@ def assignment_delete(request, pk):
     return redirect(f"{reverse('candidate_list')}?test={x.test_id}")
 
 
-@role_required("is_superadmin")
+@role_required("can_manage_candidates")
+@require_POST
+def assignment_reset_password(request, pk):
+    x = get_object_or_404(Assignment, pk=pk)
+    x.reset_password()
+    messages.success(request, f"{x.candidate.full_name}: янги парол {x.password}. Эски варақча энди ишламайди.")
+    return redirect(f"{reverse('candidate_list')}?test={x.test_id}&new={x.pk}")
+
+
+@role_required("can_manage_candidates")
+def candidate_print(request):
+    """Номзодларга бериладиган варақчалар (логин ва парол)."""
+    qs = Assignment.objects.select_related("candidate", "test").order_by("candidate__last_name", "candidate__first_name")
+    ids = [int(x) for x in request.GET.getlist("id") if x.isdigit()]
+    if ids:
+        qs = qs.filter(pk__in=ids)
+    elif request.GET.get("test"):
+        qs = qs.filter(test_id=request.GET["test"])
+    else:
+        qs = qs.none()
+    done = set(Attempt.objects.exclude(status=Attempt.Status.IN_PROGRESS).values_list("candidate_id", "test_id"))
+    slips = [x for x in qs if (x.candidate_id, x.test_id) not in done]
+    exam_url = request.build_absolute_uri(reverse("exam_login"))
+    return render(request, "exam/staff/candidate_print.html", {"slips": slips, "exam_url": exam_url,
+                                                               "skipped": len(qs) - len(slips) if not ids else 0})
+
+
+@role_required("can_manage_candidates")
 def candidate_template(request):
     from openpyxl import Workbook
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Номзодлар"
-    ws.append(["Фамилия", "Исм", "Отасининг исми", "Туғилган сана"])
-    ws.append(["Тошматов", "Бобур", "Акмалович", "20.05.1993"])
+    ws.append(["Фамилия", "Исм", "Отасининг исми", "Туғилган йили"])
+    ws.append(["Тошматов", "Бобур", "Акмалович", "1993"])
     for col, w in zip("ABCD", [18, 14, 20, 15]):
         ws.column_dimensions[col].width = w
     buf = BytesIO()
@@ -782,7 +818,7 @@ def results_export(request):
         logic, practical, interview = s["logic"] or {}, s["practical"] or {}, s["interview"] or {}
         ws.append([
             a.code, a.candidate.last_name, a.candidate.first_name, a.candidate.middle_name,
-            a.candidate.birth_date, a.test.title, a.get_status_display(),
+            a.candidate.birth_date or a.candidate.birth_year, a.test.title, a.get_status_display(),
             a.get_photo_status_display() if a.photo_status else ("Олинмаган" if a.test.require_photo else "—"),
             _num(logic.get("score")), _num(logic.get("max")), s["logic_band"],
             _num(practical.get("score")), _num(practical.get("max")),

@@ -5,18 +5,13 @@
   <div class="auth-card">
     <div class="logo">{% icon "cap" "lg" %}</div>
     <h1>Тестга кириш</h1>
-    <p class="lead">Маълумотларингизни паспортингиздагидек ёзинг. Тизим сизга бириктирилган тестни ўзи топади.</p>
+    <p class="lead">Сизга берилган варақчадаги <b>логин</b> ва <b>паролни</b> киритинг.</p>
     {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
     <form method="post" autocomplete="off">{% csrf_token %}
       {% include "exam/_fields.html" %}
-      {% if choices %}
-      <div class="field"><span class="field-label">Сизга бир нечта тест бириктирилган. Қайсинисини бошлайсиз?</span>
-        <div class="choice-list">{% for t in choices %}<label><input type="radio" name="test" value="{{ t.pk }}" required> {{ t.title }}</label>{% endfor %}</div>
-      </div>
-      {% endif %}
       <button class="btn lg block">Тестни бошлаш {% icon "right" %}</button>
     </form>
-    <div class="auth-foot">Муаммо бўлса, назоратчига мурожаат қилинг.</div>
+    <div class="auth-foot">Варақча йўқ ёки кира олмасангиз, назоратчига мурожаат қилинг.</div>
   </div>
 </div>
 {% endblock %}

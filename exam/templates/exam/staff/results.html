@@ -31,7 +31,7 @@
     <tr onclick="location.href='{% url 'result_detail' a.pk %}'" style="cursor:pointer">
       <td><div class="row" style="gap:12px;flex-wrap:nowrap">
         {% if a.photo %}<img src="{% url 'result_photo' a.pk %}" alt="" class="avatar" loading="lazy">{% else %}<span class="avatar none" title="{{ a.get_photo_status_display }}">{% icon "id" %}</span>{% endif %}
-        <div><a class="table-link" href="{% url 'result_detail' a.pk %}">{{ a.candidate.full_name }}</a><div class="muted small">{{ a.candidate.birth_date|date:"d.m.Y" }} · <span class="mono">{{ a.code }}</span></div></div>
+        <div><a class="table-link" href="{% url 'result_detail' a.pk %}">{{ a.candidate.full_name }}</a><div class="muted small">{{ a.candidate.birth_display }} · <span class="mono">{{ a.code }}</span></div></div>
       </div></td>
       <td class="small">{{ a.test.title }}</td>
       <td><span class="badge {{ a.status }}">{{ a.get_status_display }}</span>{% if a.third_review_needed %}<div class="small muted" style="margin-top:4px" title="{{ a.third_review_reason }}">⚖ 3-текширув</div>{% endif %}</td>

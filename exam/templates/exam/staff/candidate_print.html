@@ -1,0 +1,40 @@
+{% load static exam_tags %}<!doctype html>
+<html lang="uz-Cyrl"><head><meta charset="utf-8"><title>Номзодлар учун варақчалар</title>
+<style>
+  @page { size: A4; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; background: #f4f6fa; }
+  .bar { position: sticky; top: 0; background: #0f1b33; color: #fff; padding: 12px 20px; display: flex; gap: 16px; align-items: center; }
+  .bar button { height: 38px; padding: 0 18px; border-radius: 8px; border: 0; background: #3b82f6; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  .bar a { color: #c7d2e5; }
+  .sheet { max-width: 190mm; margin: 16px auto; display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: #fff; }
+  .slip { border: 1px dashed #94a3b8; padding: 7mm 8mm; height: 68mm; display: flex; flex-direction: column; break-inside: avoid; }
+  .slip .org { font-size: 9pt; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+  .slip .name { font-size: 13pt; font-weight: 700; margin: 2mm 0 1mm; line-height: 1.2; }
+  .slip .test { font-size: 9.5pt; color: #334155; }
+  .slip .creds { display: grid; grid-template-columns: auto 1fr; gap: 1mm 4mm; margin: 4mm 0 3mm; align-items: baseline; }
+  .slip .creds span { font-size: 10pt; color: #64748b; }
+  .slip .creds b { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 20pt; letter-spacing: .12em; }
+  .slip .how { font-size: 8.5pt; color: #475569; margin-top: auto; line-height: 1.35; }
+  .empty { text-align: center; padding: 60px; color: #64748b; grid-column: 1 / -1; }
+  @media print { body { background: #fff; } .bar { display: none; } .sheet { margin: 0; max-width: none; } }
+</style></head>
+<body>
+<div class="bar">
+  <button onclick="window.print()">🖨 Чоп этиш</button>
+  <span>{{ slips|length }} та варақча{% if skipped %} · тестни топширган {{ skipped }} та номзод чиқарилмади{% endif %}</span>
+  <a href="javascript:history.back()">← Орқага</a>
+</div>
+<div class="sheet">
+  {% for x in slips %}
+  <div class="slip">
+    <div class="org">Танлов тести · кириш варақчаси</div>
+    <div class="name">{{ x.candidate.full_name }}</div>
+    <div class="test">{{ x.test.title }}</div>
+    <div class="creds"><span>Логин:</span><b>{{ x.login }}</b><span>Парол:</span><b>{{ x.password }}</b></div>
+    <div class="how">Компьютердаги «test» белгисини очинг, логин ва паролни киритиб «Тестни бошлаш» ни босинг.
+      Варақчани бошқаларга берманг. Тест бир марта топширилади.</div>
+  </div>
+  {% empty %}<div class="empty">Чоп этиш учун номзод йўқ.</div>{% endfor %}
+</div>
+</body></html>

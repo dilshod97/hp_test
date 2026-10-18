@@ -8,12 +8,6 @@ from .models import Block, Candidate, Kind, Question, QuestionBank, Test, User
 from .utils import clean_html, is_empty_html
 
 
-def check_birth_date(d):
-    if d.year < 1940 or (date.today() - d).days < 16 * 365:
-        raise forms.ValidationError("Туғилган сана нотўғри.")
-    return d
-
-
 class StaffLoginForm(AuthenticationForm):
     error_messages = {
         "invalid_login": "Логин ёки парол нотўғри.",
@@ -27,31 +21,56 @@ class StaffLoginForm(AuthenticationForm):
 
 
 class CandidateLoginForm(forms.Form):
-    last_name = forms.CharField(label="Фамилия", max_length=100)
-    first_name = forms.CharField(label="Исм", max_length=100)
-    middle_name = forms.CharField(label="Отасининг исми", max_length=100, required=False)
-    birth_date = forms.DateField(label="Туғилган сана", widget=forms.DateInput(attrs={"type": "date"}))
+    login = forms.CharField(label="Логин", max_length=12,
+                            widget=forms.TextInput(attrs={"inputmode": "numeric", "autocomplete": "off", "autofocus": True}))
+    password = forms.CharField(label="Парол", max_length=12,
+                               widget=forms.PasswordInput(attrs={"inputmode": "numeric", "autocomplete": "off"}))
 
-    def clean_birth_date(self):
-        return check_birth_date(self.cleaned_data["birth_date"])
+    def clean_login(self):
+        return "".join(self.cleaned_data["login"].split())
+
+    def clean_password(self):
+        return "".join(self.cleaned_data["password"].split())
+
+
+def parse_birth(value):
+    """«1995», «12.04.1995», «1995-04-12» ёки Excel санаси → (date ёки None, йил)."""
+    if isinstance(value, (int, float)) and 1940 <= int(value) <= date.today().year:
+        return None, int(value)
+    d = parse_date(value)
+    if d:
+        return d, d.year
+    text = str(value or "").strip()
+    if text.isdigit() and len(text) == 4:
+        return None, int(text)
+    return None, None
+
+
+def check_birth(born_date, year):
+    if year is None:
+        raise forms.ValidationError("Туғилган йилни (масалан, 1995) ёки санасини (12.04.1995) ёзинг.")
+    if year < 1940 or year > date.today().year - 16:
+        raise forms.ValidationError("Туғилган йил нотўғри.")
+    return born_date, year
 
 
 class CandidateForm(forms.Form):
-    """Номзодни қўлда рўйхатга қўшиш."""
+    """Номзодни қўлда рўйхатга қўшиш (HR)."""
     last_name = forms.CharField(label="Фамилия", max_length=100)
     first_name = forms.CharField(label="Исм", max_length=100)
     middle_name = forms.CharField(label="Отасининг исми", max_length=100, required=False)
-    birth_date = forms.DateField(label="Туғилган сана", widget=forms.DateInput(attrs={"type": "date"}))
+    birth = forms.CharField(label="Туғилган йили", max_length=10,
+                            widget=forms.TextInput(attrs={"placeholder": "1995 ёки 12.04.1995"}))
     test = forms.ModelChoiceField(label="Тест", queryset=Test.objects.all(), empty_label="— тестни танланг —")
 
-    def clean_birth_date(self):
-        return check_birth_date(self.cleaned_data["birth_date"])
+    def clean_birth(self):
+        return check_birth(*parse_birth(self.cleaned_data["birth"]))
 
 
 class CandidateImportForm(forms.Form):
     file = forms.FileField(
         label="Excel файл (.xlsx)",
-        help_text="Устунлар: Фамилия, Исм, Отасининг исми, Туғилган сана (кк.оо.йййй). Биринчи қатор — сарлавҳа.",
+        help_text="Устунлар: Фамилия, Исм, Отасининг исми, Туғилган йили (1995) ёки санаси (12.04.1995). Биринчи қатор — сарлавҳа.",
     )
     test = forms.ModelChoiceField(label="Тест", queryset=Test.objects.all(), empty_label="— тестни танланг —")
 
@@ -71,11 +90,11 @@ class CandidateImportForm(forms.Form):
             last, first, middle, born = cells[:4]
             if not any([last, first, born]):
                 continue
-            born_date = parse_date(born)
-            if not last or not first or born_date is None:
-                errors.append(f"{n}-қатор: фамилия, исм ёки туғилган сана нотўғри")
+            born_date, year = parse_birth(born)
+            if not last or not first or year is None:
+                errors.append(f"{n}-қатор: фамилия, исм ёки туғилган йил нотўғри")
                 continue
-            rows.append((str(last).strip(), str(first).strip(), str(middle or "").strip(), born_date))
+            rows.append((str(last).strip(), str(first).strip(), str(middle or "").strip(), (born_date, year)))
         if errors:
             raise forms.ValidationError(errors[:10])
         if not rows:

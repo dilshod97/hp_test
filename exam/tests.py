@@ -21,6 +21,8 @@ class Base(TestCase):
     review_mode = Test.ReviewMode.DOUBLE
 
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # кириш уринишлари ҳисоблагичи тестлар орасида тўпланмасин
         self.admin = User.objects.create_user("admin", password="x" * 10, role=User.Role.SUPERADMIN)
         self.author = User.objects.create_user("author", password="x" * 10, role=User.Role.AUTHOR)
         self.c1 = User.objects.create_user("c1", password="x" * 10, role=User.Role.CHECKER)
@@ -65,22 +67,20 @@ class Base(TestCase):
 
         self.q_logic1, self.q_logic2 = self.logic.questions.all()
         self.q_ma1, self.q_ma2 = self.practical.questions.all()
-        self.register("Karimov", "Aziz", "Olimovich", "1995-03-12")
+        self.assignment = self.register("Karimov", "Aziz", "Olimovich", "1995")
 
     def register(self, last, first, middle, born, test=None):
         self.client.force_login(self.admin)
         self.client.post(reverse("candidate_add"), {
-            "last_name": last, "first_name": first, "middle_name": middle, "birth_date": born,
+            "last_name": last, "first_name": first, "middle_name": middle, "birth": born,
             "test": (test or self.test).pk,
         })
         self.client.logout()
+        return Assignment.objects.get(candidate__last_name=last, candidate__first_name=first, test=test or self.test)
 
-    def login_candidate(self, client=None, **overrides):
-        data = {
-            "last_name": "Karimov", "first_name": "Aziz",
-            "middle_name": "Olimovich", "birth_date": "1995-03-12",
-        }
-        data.update(overrides)
+    def login_candidate(self, client=None, login=None, password=None, assignment=None):
+        a = assignment or self.assignment
+        data = {"login": login or a.login, "password": password or a.password}
         return (client or self.client).post(reverse("exam_login"), data)
 
     def save(self, payload):
@@ -260,8 +260,8 @@ class FlowTests(Base):
 
     def test_duplicate_blocked_and_lock(self):
         self.take_test()
-        r = self.login_candidate(last_name="  KARIMOV ", first_name="aziz")
-        self.assertContains(r, "аллақачон топширгансиз")
+        r = self.login_candidate()
+        self.assertContains(r, "суперадмин рухсати")
         self.client.force_login(self.author)
         r = self.client.get(reverse("question_edit", args=[self.q_ma1.pk]))
         self.assertRedirects(r, reverse("test_detail", args=[self.test.pk]))
@@ -393,26 +393,78 @@ class SessionTests(Base):
 
 
 class RegistrationTests(Base):
-    def test_unregistered_rejected(self):
-        r = self.login_candidate(last_name="Begona")
-        self.assertContains(r, "рўйхатида топилмадингиз")
+    def test_credentials_generated(self):
+        a = self.assignment
+        self.assertRegex(a.login, r"^\d{6}$")
+        self.assertRegex(a.password, r"^[2-9]{6}$")
+        self.assertEqual(a.candidate.birth_year, 1995)
+        self.assertIsNone(a.candidate.birth_date)
+
+    def test_wrong_password_and_lock(self):
+        r = self.login_candidate(password="000000")
+        self.assertContains(r, "Логин ёки парол нотўғри")
+        r = self.login_candidate(login="999999")
+        self.assertContains(r, "Логин ёки парол нотўғри")
+        for _ in range(5):
+            self.login_candidate(password="000000")
+        r = self.login_candidate()  # тўғри парол ҳам блокланган
+        self.assertContains(r, "кўп марта нотўғри")
         self.assertEqual(Attempt.objects.count(), 0)
 
     def test_inactive_test_rejected(self):
         self.test.is_active = False
         self.test.save()
         r = self.login_candidate()
-        self.assertContains(r, "фаол тест бириктирилмаган")
+        self.assertContains(r, "ҳали очилмаган")
 
-    def test_choice_when_two_tests(self):
+    def test_each_test_has_own_login(self):
         other = Test.objects.create(title="Tahlilchi", is_active=True, created_by=self.admin, require_photo=False)
         other.blocks.create(title="B", kind="logic", duration_minutes=5)
-        self.register("Karimov", "Aziz", "Olimovich", "1995-03-12", test=other)
-        r = self.login_candidate()
-        self.assertContains(r, "Қайсинисини бошлайсиз")
-        r = self.login_candidate(test=other.pk)
+        a2 = self.register("Karimov", "Aziz", "Olimovich", "1995", test=other)
+        self.assertNotEqual(a2.login, self.assignment.login)
+        r = self.login_candidate(assignment=a2)
         self.assertRedirects(r, reverse("exam_take"))
         self.assertEqual(Attempt.objects.get().test, other)
+
+    def test_retake_needs_superadmin(self):
+        attempt = self.take_test()
+        r = self.login_candidate()
+        self.assertContains(r, "суперадмин рухсати")
+        hr = User.objects.create_user("hr", password="x" * 10, role=User.Role.HR)
+        self.client.force_login(hr)
+        self.assertEqual(self.client.post(reverse("result_action", args=[attempt.pk]), {"action": "delete"}).status_code, 403)
+        self.client.force_login(self.admin)
+        self.client.post(reverse("result_action", args=[attempt.pk]), {"action": "delete"})
+        self.client.logout()
+        self.assertRedirects(self.login_candidate(), reverse("exam_take"))
+
+    def test_hr_role(self):
+        hr = User.objects.create_user("hr", password="x" * 10, role=User.Role.HR)
+        self.client.force_login(hr)
+        self.assertRedirects(self.client.get(reverse("dashboard")), reverse("candidate_list"))
+        r = self.client.get(reverse("candidate_list"))
+        self.assertContains(r, self.assignment.login)
+        self.assertContains(r, self.assignment.password)
+        for name in ("results", "test_list", "bank_list", "user_list", "check_list"):
+            self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
+        self.client.post(reverse("candidate_add"), {"last_name": "Ali", "first_name": "Vali", "middle_name": "",
+                                                    "birth": "12.04.1994", "test": self.test.pk})
+        new = Assignment.objects.get(candidate__last_name="Ali")
+        self.assertEqual(new.candidate.birth_year, 1994)
+        r = self.client.get(reverse("candidate_print") + f"?test={self.test.pk}")
+        self.assertContains(r, new.login)
+        self.assertContains(r, new.password)
+        self.assertContains(r, "Ali Vali")
+        old = new.password
+        self.client.post(reverse("assignment_reset_password", args=[new.pk]))
+        new.refresh_from_db()
+        self.assertNotEqual(new.password, old)
+
+    def test_print_skips_finished(self):
+        self.take_test()
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("candidate_print") + f"?test={self.test.pk}")
+        self.assertNotContains(r, self.assignment.password)
 
     def test_excel_import(self):
         from io import BytesIO
@@ -420,9 +472,9 @@ class RegistrationTests(Base):
         from openpyxl import Workbook
         wb = Workbook()
         ws = wb.active
-        ws.append(["Фамилия", "Исм", "Отасининг исми", "Туғилган сана"])
-        ws.append(["Тошматов", "Бобур", "Акмалович", "20.05.1993"])
-        ws.append(["Каримова", "Нилуфар", "", "1996-02-11"])
+        ws.append(["Фамилия", "Исм", "Отасининг исми", "Туғилган йили"])
+        ws.append(["Тошматов", "Бобур", "Акмалович", 1993])
+        ws.append(["Каримова", "Нилуфар", "", "11.02.1996"])
         ws.append([None, None, None, None])
         buf = BytesIO()
         wb.save(buf)
@@ -432,8 +484,9 @@ class RegistrationTests(Base):
         self.client.post(reverse("candidate_import"), {"file": buf, "test": self.test.pk})
         self.assertEqual(Assignment.objects.filter(test=self.test).count(), 3)
         self.client.logout()
-        r = self.login_candidate(last_name="тошматов", first_name="БОБУР", middle_name="Акмалович", birth_date="1993-05-20")
-        self.assertRedirects(r, reverse("exam_take"))
+        a = Assignment.objects.get(candidate__last_name="Тошматов")
+        self.assertEqual(a.candidate.birth_year, 1993)
+        self.assertRedirects(self.login_candidate(assignment=a), reverse("exam_take"))
 
     def test_assignment_delete_only_before_start(self):
         x = Assignment.objects.get()

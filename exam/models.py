@@ -17,6 +17,7 @@ class User(AbstractUser):
         SUPERADMIN = "superadmin", "Суперадмин"
         AUTHOR = "author", "Тест тузувчи"
         CHECKER = "checker", "Эксперт"
+        HR = "hr", "Кадрлар бўлими"
 
     role = models.CharField("Рол", max_length=20, choices=Role.choices, default=Role.CHECKER)
 
@@ -27,6 +28,14 @@ class User(AbstractUser):
     @property
     def is_author(self):
         return self.role == self.Role.AUTHOR or self.is_superadmin
+
+    @property
+    def is_hr(self):
+        return self.role == self.Role.HR
+
+    @property
+    def can_manage_candidates(self):
+        return self.is_hr or self.is_superadmin
 
     @property
     def is_checker(self):
@@ -241,7 +250,8 @@ class Candidate(models.Model):
     last_name = models.CharField("Фамилия", max_length=100)
     first_name = models.CharField("Исм", max_length=100)
     middle_name = models.CharField("Отасининг исми", max_length=100, blank=True)
-    birth_date = models.DateField("Туғилган сана")
+    birth_date = models.DateField("Туғилган сана", null=True, blank=True)
+    birth_year = models.PositiveSmallIntegerField("Туғилган йили", null=True, blank=True)
     # Takrorlanishni aniqlash uchun normallashtirilgan kalit
     identity_key = models.CharField(max_length=400, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -253,6 +263,12 @@ class Candidate(models.Model):
     def full_name(self):
         return " ".join(x for x in [self.last_name, self.first_name, self.middle_name] if x)
 
+    @property
+    def birth_display(self):
+        if self.birth_date:
+            return self.birth_date.strftime("%d.%m.%Y")
+        return f"{self.birth_year} й." if self.birth_year else "—"
+
     @staticmethod
     def normalize(value):
         value = (value or "").strip().casefold()
@@ -261,9 +277,25 @@ class Candidate(models.Model):
         return " ".join(value.split())
 
     @classmethod
-    def make_identity_key(cls, last_name, first_name, middle_name, birth_date):
-        parts = [cls.normalize(last_name), cls.normalize(first_name), cls.normalize(middle_name), birth_date.isoformat()]
+    def make_identity_key(cls, last_name, first_name, middle_name, birth):
+        """birth — сана (date) ёки йил (int)."""
+        born = birth.isoformat() if hasattr(birth, "isoformat") else str(birth)
+        parts = [cls.normalize(last_name), cls.normalize(first_name), cls.normalize(middle_name), born]
         return "|".join(parts)
+
+
+def generate_login():
+    rng = random.SystemRandom()
+    while True:
+        login = str(rng.randint(100000, 999999))
+        if not Assignment.objects.filter(login=login).exists():
+            return login
+
+
+def generate_password():
+    # Ўхшаш рақамлар (масалан 0/8) аралашмаслиги учун фақат 2–9
+    rng = random.SystemRandom()
+    return "".join(rng.choice("23456789") for _ in range(6))
 
 
 class Assignment(models.Model):
@@ -271,6 +303,23 @@ class Assignment(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name="assignments", verbose_name="Номзод")
     test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name="assignments", verbose_name="Тест")
     created_at = models.DateTimeField(auto_now_add=True)
+    # Номзоднинг кириш маълумотлари (HR чоп этиб беради). Фақат шу тест учун, тест топширилгач ишламайди.
+    login = models.CharField("Логин", max_length=12, unique=True, null=True, blank=True)
+    password = models.CharField("Парол", max_length=12, blank=True)
+    failed_logins = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.login:
+            self.login = generate_login()
+        if not self.password:
+            self.password = generate_password()
+        super().save(*args, **kwargs)
+
+    def reset_password(self):
+        self.password = generate_password()
+        self.failed_logins, self.locked_until = 0, None
+        self.save(update_fields=["password", "failed_logins", "locked_until"])
 
     class Meta:
         ordering = ["candidate__last_name", "candidate__first_name"]

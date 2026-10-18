@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import CandidateLoginForm
-from .models import Answer, Attempt, BlockAttempt, Candidate
+from .models import Answer, Assignment, Attempt, BlockAttempt
 from .utils import clean_answer, client_ip, create_attempt, is_empty_html
 
 SESSION_KEY = "attempt_id"
@@ -24,58 +24,62 @@ def _current_attempt(request):
     return Attempt.objects.select_related("test", "candidate").filter(pk=attempt_id).first()
 
 
+MAX_FAILED = 5            # битта логин учун
+LOCK_MINUTES = 10
+IP_LIMIT = 30             # битта компьютердан 10 дақиқада
+
+
 def candidate_login(request):
+    import hmac
+    from datetime import timedelta
+
+    from django.core.cache import cache
+
     attempt = _current_attempt(request)
     if attempt and attempt.status == Attempt.Status.IN_PROGRESS:
         return redirect("exam_take")
 
     form = CandidateLoginForm(request.POST or None)
-    choices = None
     if request.method == "POST" and form.is_valid():
-        d = form.cleaned_data
-        key = Candidate.make_identity_key(d["last_name"], d["first_name"], d["middle_name"], d["birth_date"])
-        candidate = Candidate.objects.filter(identity_key=key).first()
-        assignments = []
-        if candidate:
-            assignments = [
-                a for a in candidate.assignments.select_related("test").filter(test__is_active=True)
-                if a.test.blocks.exists()
-            ]
-        pending = []
-        for a in assignments:
-            existing = a.attempt
-            if existing is None or existing.status == Attempt.Status.IN_PROGRESS:
-                pending.append((a, existing))
-        if not candidate:
-            form.add_error(None, "Сиз номзодлар рўйхатида топилмадингиз. Маълумотларни паспортдагидек "
-                                 "текшириб ёзинг ёки назоратчига мурожаат қилинг.")
-        elif not assignments:
-            form.add_error(None, "Сизга ҳозир фаол тест бириктирилмаган. Назоратчига мурожаат қилинг.")
-        elif not pending:
-            form.add_error(None, "Сиз бу тестни аллақачон топширгансиз. Қайта топшириш мумкин эмас.")
+        ip_key = f"exam-login:{client_ip(request)}"
+        now = timezone.now()
+        assignment = (Assignment.objects.select_related("candidate", "test")
+                      .filter(login=form.cleaned_data["login"]).first())
+        if cache.get(ip_key, 0) >= IP_LIMIT:
+            form.add_error(None, "Жуда кўп уриниш. 10 дақиқадан кейин қайтадан уриниб кўринг ёки назоратчига мурожаат қилинг.")
+        elif assignment and assignment.locked_until and assignment.locked_until > now:
+            form.add_error(None, "Бу логин учун кўп марта нотўғри парол киритилди. Назоратчига мурожаат қилинг.")
+        elif not assignment or not hmac.compare_digest(assignment.password, form.cleaned_data["password"]):
+            cache.set(ip_key, cache.get(ip_key, 0) + 1, LOCK_MINUTES * 60)
+            if assignment:
+                assignment.failed_logins += 1
+                if assignment.failed_logins >= MAX_FAILED:
+                    assignment.locked_until = now + timedelta(minutes=LOCK_MINUTES)
+                assignment.save(update_fields=["failed_logins", "locked_until"])
+            form.add_error(None, "Логин ёки парол нотўғри. Варақчадаги рақамларни текшириб, қайта киритинг.")
+        elif not assignment.test.is_active or not assignment.test.blocks.exists():
+            form.add_error(None, "Тестингиз ҳали очилмаган. Назоратчига мурожаат қилинг.")
         else:
-            chosen = None
-            if len(pending) == 1:
-                chosen = pending[0]
+            existing = Attempt.objects.filter(candidate=assignment.candidate, test=assignment.test).first()
+            if existing and existing.status != Attempt.Status.IN_PROGRESS:
+                form.add_error(None, "Сиз бу тестни топширгансиз. Қайта топшириш фақат суперадмин рухсати билан мумкин — "
+                                     "назоратчига мурожаат қилинг.")
             else:
-                test_id = request.POST.get("test")
-                chosen = next((p for p in pending if str(p[0].test_id) == test_id), None)
-                if chosen is None:
-                    choices = [p[0].test for p in pending]
-            if chosen:
-                assignment, attempt = chosen
-                if attempt is None:
+                if assignment.failed_logins or assignment.locked_until:
+                    assignment.failed_logins, assignment.locked_until = 0, None
+                    assignment.save(update_fields=["failed_logins", "locked_until"])
+                if existing is None:
                     try:
-                        attempt = create_attempt(candidate, assignment.test, ip=client_ip(request))
+                        existing = create_attempt(assignment.candidate, assignment.test, ip=client_ip(request))
                     except IntegrityError:
-                        attempt = Attempt.objects.get(candidate=candidate, test=assignment.test)
+                        existing = Attempt.objects.get(candidate=assignment.candidate, test=assignment.test)
                 else:
                     messages.info(request, "Тестни давом эттиряпсиз. Аввалги жавобларингиз сақланган.")
                 request.session.flush()  # brauzerda xodim sessiyasi qolmasin
-                request.session[SESSION_KEY] = attempt.pk
+                request.session[SESSION_KEY] = existing.pk
                 return redirect("exam_take")
 
-    return render(request, "exam/candidate/login.html", {"form": form, "choices": choices})
+    return render(request, "exam/candidate/login.html", {"form": form})
 
 
 def take(request):

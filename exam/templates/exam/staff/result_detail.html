@@ -11,7 +11,7 @@
     <h1>{{ attempt.candidate.full_name }}</h1>
     <div class="meta">
       <span><span class="badge {{ attempt.status }}">{{ attempt.get_status_display }}</span></span>
-      <span>Туғилган сана: <b>{{ attempt.candidate.birth_date|date:"d.m.Y" }}</b></span>
+      <span>Туғилган сана: <b>{{ attempt.candidate.birth_display }}</b></span>
       <span>Аноним код: <b class="mono">{{ attempt.code }}</b></span>
       <span>Тест: <b>{{ attempt.test.title }}</b></span>
     </div>

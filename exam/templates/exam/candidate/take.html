@@ -5,6 +5,7 @@
   <div class="inner">
     <div style="min-width:0">
       <div class="title">{{ attempt.test.title }}</div>
+      <div class="subtitle"><b>{{ attempt.candidate.full_name }}</b></div>
       <div class="subtitle">{% if free %}{{ block_count }} та блок · исталган саволга қайтиш мумкин{% else %}{{ block_index }}-блок ({{ block_count }} тадан): {{ cur_block.title }}{% endif %}</div>
     </div>
     <div class="progress">
