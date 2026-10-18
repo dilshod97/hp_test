@@ -235,22 +235,39 @@ def block_add_from_bank(request, pk):
     if bank is None:
         bank = banks.filter(kind=block.kind).first() or banks.first()
 
+    already = set(block.questions.exclude(source=None).values_list("source_id", flat=True))
+    available = bank.questions.exclude(pk__in=already) if bank else Question.objects.none()
+
     if request.method == "POST":
-        ids = [int(x) for x in request.POST.getlist("questions") if x.isdigit()]
-        chosen = list(Question.objects.filter(pk__in=ids, bank__isnull=False).prefetch_related(*QUESTION_PREFETCH))
+        if request.POST.get("mode") == "random":
+            # Бўлимдан тасодифий N та савол (блокда борлари қайта танланмайди)
+            raw = request.POST.get("count", "").strip()
+            pool = list(available.prefetch_related(*QUESTION_PREFETCH))
+            if not raw.isdigit() or not 1 <= int(raw) <= len(pool):
+                messages.error(request, f"1 дан {len(pool)} гача сон киритинг (бу бўлимда блокка қўшилмаган {len(pool)} та савол бор).")
+                return redirect(f"{reverse('block_add_from_bank', args=[block.pk])}?bank={bank.pk}")
+            import random
+            chosen = random.SystemRandom().sample(pool, int(raw))
+        else:
+            ids = [int(x) for x in request.POST.getlist("questions") if x.isdigit()]
+            chosen = list(Question.objects.filter(pk__in=ids, bank__isnull=False).prefetch_related(*QUESTION_PREFETCH))
+            if not chosen:
+                messages.error(request, "Савол танланмади.")
+                return redirect(f"{reverse('block_add_from_bank', args=[block.pk])}?bank={bank.pk}")
         chosen.sort(key=lambda q: (q.bank_id, q.order, q.pk))
         start = (block.questions.aggregate(m=Max("order"))["m"] or 0) + 1
         with transaction.atomic():
             for i, q in enumerate(chosen):
                 q.copy_to(block=block, order=start + i)
-        messages.success(request, f"{len(chosen)} та савол қўшилди.")
+        how = "тасодифий танланди ва " if request.POST.get("mode") == "random" else ""
+        messages.success(request, f"{len(chosen)} та савол {how}«{block.title}» блокига қўшилди.")
         return redirect("test_detail", block.test_id)
 
-    already = set(block.questions.exclude(source=None).values_list("source_id", flat=True))
     questions = bank.questions.prefetch_related("criteria") if bank else []
     return render(request, "exam/staff/bank_pick.html", {
         "cur_block": block, "test": block.test, "banks": banks, "bank": bank,
-        "questions": questions, "already": already,
+        "questions": questions, "already": already, "available_count": available.count(),
+        "in_block": block.questions.count(),
     })
 
 

@@ -774,3 +774,27 @@ class ConfirmSubmitTests(Base):
         self.client.force_login(self.author)
         r = self.client.get(reverse("test_list"))
         self.assertContains(r, "HTMLFormElement.prototype.submit.call(form)")
+
+
+class RandomPickTests(Base):
+    def test_random_n_from_bank(self):
+        bank = QuestionBank.objects.create(name="Katta bank", kind=Kind.LOGIC)
+        for i in range(30):
+            q = Question.objects.create(bank=bank, code=f"R{i}", title=f"Savol {i}", text=f"<p>{i}</p>", qtype="choice", max_score=1)
+            o = q.options.create(text="ha", order=1); q.options.create(text="yo'q", order=2)
+            q.correct_option = o; q.save()
+        self.client.force_login(self.author)
+        url = reverse("block_add_from_bank", args=[self.logic.pk])
+        before = self.logic.questions.count()
+        self.client.post(url, {"bank": bank.pk, "mode": "random", "count": "10"})
+        added = self.logic.questions.filter(source__bank=bank)
+        self.assertEqual(added.count(), 10)
+        self.assertEqual(self.logic.questions.count(), before + 10)
+        self.assertTrue(all(q.correct_option and q.correct_option.question_id == q.pk for q in added))
+        # Иккинчи марта — блокдагилар такрорланмайди
+        self.client.post(url, {"bank": bank.pk, "mode": "random", "count": "20"})
+        self.assertEqual(self.logic.questions.filter(source__bank=bank).values("source").distinct().count(), 30)
+        # Ортиқча сон рад этилади
+        r = self.client.post(url, {"bank": bank.pk, "mode": "random", "count": "5"}, follow=True)
+        self.assertContains(r, "гача сон киритинг")
+        self.assertEqual(self.logic.questions.filter(source__bank=bank).count(), 30)

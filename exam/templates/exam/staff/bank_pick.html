@@ -3,39 +3,67 @@
 {% block title %}Базадан қўшиш{% endblock %}
 {% block content %}
 <div class="crumbs"><a href="{% url 'test_detail' test.pk %}">{{ test }}</a> / {{ cur_block }} /</div>
-<div class="page-head"><div><h1>Базадан савол қўшиш</h1><div class="sub">Бўлимни танланг, керакли саволларни белгиланг ва «Қўшиш» ни босинг.</div></div></div>
-<form method="post">{% csrf_token %}
-<input type="hidden" name="bank" value="{{ bank.pk }}">
-<div class="card flush">
-  <div class="toolbar">
-    <select onchange="location.href='?bank='+this.value">
-      {% for b in banks %}<option value="{{ b.pk }}" {% if b.pk == bank.pk %}selected{% endif %}>{{ b.name }} ({{ b.n }})</option>{% endfor %}
+<div class="page-head"><div><h1>Базадан савол қўшиш</h1>
+  <div class="sub">«{{ cur_block }}» блокида ҳозир {{ in_block }} та савол бор.</div></div></div>
+
+<div class="card">
+  <form method="get" class="row" style="margin-bottom:18px">
+    <label class="field-label" style="margin:0">Бўлим:</label>
+    <select name="bank" onchange="this.form.submit()" style="max-width:520px">
+      {% for b in banks %}<option value="{{ b.pk }}" {% if b.pk == bank.pk %}selected{% endif %}>{{ b.name }} ({{ b.n }}){% if b.source %} — {{ b.source|truncatechars:40 }}{% endif %}</option>{% endfor %}
     </select>
-    <input class="search" type="text" id="filter" placeholder="Қидириш…">
-    <span class="muted small">Танланган: <b id="count">0</b></span>
-    <button class="btn">{% icon "plus" %} Қўшиш</button>
-  </div>
-  {% for q in questions %}
-  <label class="pick{% if q.pk in already %} disabled{% endif %}" data-search="{{ q.title|lower }} {{ q.text|striptags|lower }}">
-    <input type="checkbox" name="questions" value="{{ q.pk }}" {% if q.pk in already %}disabled checked{% endif %}>
-    <div style="flex:1">
-      <div class="q-title">{{ forloop.counter }}. {{ q.title|default:"Савол" }}</div>
-      <div class="q-meta">{{ q.max_score|num }} балл{% if q.pk in already %} · аллақачон қўшилган{% endif %}</div>
-      <div class="qtext small" style="margin-top:6px">{{ q.text|striptags|truncatechars:220 }}</div>
+  </form>
+  {% if bank %}
+  <form method="post" class="row top" style="gap:16px;align-items:flex-end">{% csrf_token %}
+    <input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="mode" value="random">
+    <div class="field" style="margin:0">
+      <label for="count">Нечта савол тасодифий танлансин?</label>
+      <div class="row" style="gap:10px;flex-wrap:nowrap">
+        <input id="count" type="number" name="count" min="1" max="{{ available_count }}" value="{% if available_count < 10 %}{{ available_count }}{% else %}10{% endif %}" style="width:120px;height:48px;font-size:20px;font-weight:700;text-align:center">
+        <span class="muted">/ {{ available_count }} та мавжуд</span>
+      </div>
     </div>
-  </label>
-  {% empty %}<div class="empty">Бу бўлимда савол йўқ</div>{% endfor %}
+    <button class="btn lg" {% if not available_count %}disabled{% endif %}>🎲 Тасодифий танлаб қўшиш</button>
+  </form>
+  <p class="muted small" style="margin:12px 0 0">Тизим бўлимдан шунча саволни тасодифий танлаб, блокка қўшади. Блокда аллақачон бор саволлар қайта танланмайди.
+    Танланган саволлар барча номзодлар учун бир хил бўлади. Ёқмаса, тест саҳифасида алоҳида саволни ўчириб, яна қўшиш мумкин.</p>
+  {% endif %}
 </div>
-</form>
+
+{% if bank %}
+<details class="card flush" style="padding:0">
+  <summary style="padding:16px 20px;font-weight:600">Ёки саволларни қўлда танлаш</summary>
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="mode" value="manual">
+    <div class="toolbar">
+      <input class="search" type="text" id="filter" placeholder="Қидириш…">
+      <span class="muted small">Танланган: <b id="count-sel">0</b></span>
+      <button class="btn">{% icon "plus" %} Қўшиш</button>
+    </div>
+    {% for q in questions %}
+    <label class="pick{% if q.pk in already %} disabled{% endif %}" data-search="{{ q.title|lower }} {{ q.text|striptags|lower }}">
+      <input type="checkbox" name="questions" value="{{ q.pk }}" {% if q.pk in already %}disabled checked{% endif %}>
+      <div style="flex:1">
+        <div class="q-title">{{ forloop.counter }}. {{ q.title|default:"Савол" }}</div>
+        <div class="q-meta">{{ q.max_score|num }} балл{% if q.pk in already %} · аллақачон қўшилган{% endif %}</div>
+        <div class="qtext small" style="margin-top:6px">{{ q.text|striptags|truncatechars:220 }}</div>
+      </div>
+    </label>
+    {% empty %}<div class="empty">Бу бўлимда савол йўқ</div>{% endfor %}
+  </form>
+</details>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script>
-document.getElementById('filter').addEventListener('input', e => {
+const f = document.getElementById('filter');
+if (f) f.addEventListener('input', e => {
   const v = e.target.value.toLowerCase().trim();
   document.querySelectorAll('[data-search]').forEach(el => el.style.display = !v || el.dataset.search.includes(v) ? '' : 'none');
 });
 document.addEventListener('change', () => {
-  document.getElementById('count').textContent = document.querySelectorAll('input[name=questions]:checked:not(:disabled)').length;
+  const c = document.getElementById('count-sel');
+  if (c) c.textContent = document.querySelectorAll('input[name=questions]:checked:not(:disabled)').length;
 });
 </script>
 {% endblock %}
