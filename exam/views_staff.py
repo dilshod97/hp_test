@@ -148,7 +148,8 @@ def test_copy(request, pk):
         test.interview_questions.set(src.interview_questions.all())
         for b in src.blocks.prefetch_related("questions__options", "questions__criteria"):
             nb = Block.objects.create(test=test, title=b.title, kind=b.kind, description=b.description,
-                                      duration_minutes=b.duration_minutes, order=b.order)
+                                      duration_minutes=b.duration_minutes, order=b.order,
+                                      questions_per_candidate=b.questions_per_candidate)
             for q in b.questions.all():
                 q.copy_to(block=nb)
     messages.success(request, "Нусха яратилди. Уни таҳрирлаб, кейин фаол қилинг.")

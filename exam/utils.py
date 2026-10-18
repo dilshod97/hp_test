@@ -61,6 +61,11 @@ def create_attempt(candidate, test, ip=None):
     answers = []
     for block in test.blocks.prefetch_related("questions__options"):
         questions = list(block.questions.all())
+        if block.is_drawn:
+            # Ҳар бир номзодга ўзининг тасодифий тўплами
+            questions = rng.sample(questions, block.per_candidate)
+            if not test.shuffle_questions:
+                questions.sort(key=lambda q: (q.order, q.pk))
         if test.shuffle_questions:
             rng.shuffle(questions)
         options = {}

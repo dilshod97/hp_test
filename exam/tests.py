@@ -798,3 +798,40 @@ class RandomPickTests(Base):
         r = self.client.post(url, {"bank": bank.pk, "mode": "random", "count": "5"}, follow=True)
         self.assertContains(r, "гача сон киритинг")
         self.assertEqual(self.logic.questions.filter(source__bank=bank).count(), 30)
+
+
+class PerCandidateDrawTests(Base):
+    def test_each_candidate_gets_own_set(self):
+        for i in range(3, 9):  # амалий блокда жами 8 та савол
+            q = Question.objects.create(block=self.practical, code=f"МА 0{i}", title=f"V{i}", text=f"<p>{i}</p>",
+                                        qtype="text", max_score=10, order=i)
+            q.criteria.create(text="x", max_score=2)
+        self.practical.questions_per_candidate = 3
+        self.practical.save()
+        self.assertTrue(self.practical.is_drawn)
+        self.assertEqual(self.practical.max_per_candidate, 30)
+        self.assertEqual(self.test.max_score_for(Kind.PRACTICAL), 30)
+
+        sets = []
+        for n in range(8):
+            a = self.register(f"Nomzod{n}", "Test", "", "1990")
+            self.client.logout()
+            c = self.client_class()
+            c.post(reverse("exam_login"), {"login": a.login, "password": a.password})
+            attempt = Attempt.objects.get(candidate=a.candidate)
+            practical = attempt.answers.filter(question__block=self.practical)
+            self.assertEqual(practical.count(), 3)
+            self.assertEqual(attempt.answers.filter(question__block=self.logic).count(), 2)  # бошқа блок тўлиқ
+            sets.append(frozenset(practical.values_list("question_id", flat=True)))
+            r = c.get(reverse("exam_take"))
+            self.assertEqual(r.status_code, 200)
+        self.assertGreater(len(set(sets)), 1)  # номзодларга ҳар хил тўплам тушган
+
+        # Балл ва якуний натижа номзоднинг ўз саволлари бўйича
+        attempt = Attempt.objects.first()
+        from . import grading
+        self.assertEqual(grading.summary(attempt)["practical"]["max"], 30)
+
+    def test_zero_means_all(self):
+        self.assertFalse(self.practical.is_drawn)
+        self.assertEqual(self.practical.per_candidate, 2)

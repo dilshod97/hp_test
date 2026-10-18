@@ -132,10 +132,11 @@ class Test(models.Model):
 
     @property
     def max_score(self):
-        return Question.objects.filter(block__test=self).aggregate(s=Sum("max_score"))["s"] or Decimal(0)
+        """Битта номзод учун максимал балл (блокдан танланадиган савол сонини ҳисобга олади)."""
+        return sum((b.max_per_candidate for b in self.blocks.all()), Decimal(0))
 
     def max_score_for(self, kind):
-        return Question.objects.filter(block__test=self, block__kind=kind).aggregate(s=Sum("max_score"))["s"] or Decimal(0)
+        return sum((b.max_per_candidate for b in self.blocks.filter(kind=kind)), Decimal(0))
 
     @property
     def required_reviews(self):
@@ -151,6 +152,11 @@ class Block(models.Model):
     )
     description = models.TextField("Номзод учун кўрсатма", blank=True)
     duration_minutes = models.PositiveIntegerField("Вақт (дақиқа)", default=20)
+    questions_per_candidate = models.PositiveIntegerField(
+        "Ҳар бир номзодга нечта савол", default=0,
+        help_text="0 — блокдаги барча саволлар ҳамма номзодга. Масалан 6 ёзилса, ҳар бир номзодга блокдаги "
+                  "саволлардан ўзининг 6 таси тасодифий танланади (номзодларга ҳар хил савол тушади).",
+    )
     order = models.PositiveIntegerField("Тартиб", default=0)
 
     class Meta:
@@ -158,6 +164,29 @@ class Block(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def pool_size(self):
+        return self.questions.count()
+
+    @property
+    def per_candidate(self):
+        n = self.pool_size
+        return min(self.questions_per_candidate, n) if self.questions_per_candidate else n
+
+    @property
+    def is_drawn(self):
+        return bool(self.questions_per_candidate) and self.questions_per_candidate < self.pool_size
+
+    @property
+    def max_per_candidate(self):
+        scores = [q.max_score for q in self.questions.all()]
+        if not scores:
+            return Decimal(0)
+        if not self.is_drawn:
+            return sum(scores, Decimal(0))
+        # Саволлар баллари бир хил бўлса аниқ; ҳар хил бўлса — ўртача
+        return (sum(scores, Decimal(0)) / len(scores) * self.per_candidate).quantize(Decimal("0.01"))
 
 
 class Question(models.Model):

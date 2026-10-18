@@ -47,7 +47,9 @@
   <div class="card flush block-card">
     <div class="card-head">
       <div><h2><span class="block-num">{{ forloop.counter }}</span>{{ b.title }}</h2>
-        <div class="muted small" style="margin:4px 0 0 36px">{{ b.get_kind_display }} · {{ b.duration_minutes }} дақиқа · {{ b.questions.all|length }} савол</div></div>
+        <div class="muted small" style="margin:4px 0 0 36px">{{ b.get_kind_display }} · {{ b.duration_minutes }} дақиқа ·
+          {% if b.is_drawn %}<b style="color:var(--primary)">🎲 ҳар бир номзодга {{ b.per_candidate }} та</b> ({{ b.questions.all|length }} та саволдан тасодифий)
+          {% else %}{{ b.questions.all|length }} савол{% if b.questions_per_candidate and b.questions_per_candidate >= b.questions.all|length %} <span style="color:var(--warning)">· ҳар номзодга {{ b.questions_per_candidate }} та сўралган, лекин блокда шунча ёки камроқ савол бор — ҳаммаси берилади</span>{% endif %}{% endif %}</div></div>
       {% if not test.is_locked %}
       <div class="row" style="gap:6px">
         <a class="btn sm" href="{% url 'block_add_from_bank' b.pk %}">{% icon "db" %} Базадан</a>

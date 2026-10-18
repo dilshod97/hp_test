@@ -25,8 +25,15 @@
     </div>
     <button class="btn lg" {% if not available_count %}disabled{% endif %}>🎲 Тасодифий танлаб қўшиш</button>
   </form>
+  {% if available_count %}
+  <form method="post" style="margin-top:12px">{% csrf_token %}
+    <input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="mode" value="random"><input type="hidden" name="count" value="{{ available_count }}">
+    <button class="btn secondary">{% icon "plus" %} Барчасини қўшиш ({{ available_count }} та)</button>
+    <span class="muted small" style="margin-left:8px">— номзодларга ҳар хил савол тушиши учун: барчасини қўшинг, кейин блок созламасида «Ҳар бир номзодга нечта савол» ни белгиланг.</span>
+  </form>
+  {% endif %}
   <p class="muted small" style="margin:12px 0 0">Тизим бўлимдан шунча саволни тасодифий танлаб, блокка қўшади. Блокда аллақачон бор саволлар қайта танланмайди.
-    Танланган саволлар барча номзодлар учун бир хил бўлади. Ёқмаса, тест саҳифасида алоҳида саволни ўчириб, яна қўшиш мумкин.</p>
+    Блок созламасида «Ҳар бир номзодга нечта савол» берилса, ҳар бир номзодга блокдаги саволлардан ўзининг тўплами тасодифий тушади.</p>
   {% endif %}
 </div>
 
