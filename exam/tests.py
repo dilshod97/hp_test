@@ -364,6 +364,7 @@ class ImportTests(TestCase):
         call_command("import_tanlov", DOCX, verbosity=0)
         self.assertEqual(Question.objects.filter(bank__isnull=False).count(), 220)
         self.assertEqual(Question.objects.filter(bank__kind=Kind.LOGIC, correct_option__isnull=False).count(), 100)
+        self.assertEqual(QuestionBank.objects.filter(kind=Kind.LOGIC).count(), 1)  # 5 тўплам битта бўлимда
         self.assertEqual(Test.objects.count(), 2)
         for t in Test.objects.all():
             self.assertEqual(t.max_score_for(Kind.LOGIC), 20)
@@ -911,3 +912,26 @@ class BankListTests(Base):
         self.assertLess(html.index(">P1<"), html.index(">P2<"))
         self.assertLess(html.index(">P2<"), html.index(">L1<"))
         self.assertLess(html.index(">L1<"), html.index(">L2<"))
+
+
+class BankMergeTests(BlockRuleTests):
+    def test_merge_moves_questions_and_rules(self):
+        b1, b2, b3 = self.make_bank("A", 5), self.make_bank("B", 5), self.make_bank("C", 5)
+        self.client.force_login(self.author)
+        self.client.post(reverse("block_create", args=[self.test.pk]), {
+            "title": "X", "kind": "logic", "duration_minutes": 10, "order": 3,
+            "rule_bank": [b1.pk, b2.pk], "rule_count": ["2", "3"]})
+        block = self.test.blocks.get(title="X")
+        self.client.post(reverse("bank_merge", args=[b1.pk]), {"merge": [b2.pk, b3.pk], "name": "Mantiq"})
+        b1.refresh_from_db()
+        self.assertEqual(b1.name, "Mantiq")
+        self.assertEqual(b1.questions.count(), 15)
+        self.assertFalse(QuestionBank.objects.filter(pk__in=[b2.pk, b3.pk]).exists())
+        rules = list(block.rules.all())
+        self.assertEqual([(r.bank_id, r.count) for r in rules], [(b1.pk, 5)])
+        self.assertEqual(block.pool_size, 10)
+        self.assertEqual(block.per_candidate, 5)
+        # Синов: номзод 5 та савол олади
+        a = self.register("M", "T", "", "1990")
+        self.client_class().post(reverse("exam_login"), {"login": a.login, "password": a.password})
+        self.assertEqual(Attempt.objects.get(candidate=a.candidate).answers.filter(question__block=block).count(), 5)

@@ -265,7 +265,8 @@ def import_parsed(parsed, source, user=None, create_tests=True):
     """Таҳлил қилинган ҳужжатни базага ёзади. Ҳисобот (dict) қайтаради."""
     report = {"banks": [], "created": 0, "updated": 0, "tests": [], "skipped_tests": []}
     order_base = (QuestionBank.objects.exclude(source=source).order_by("-order").values_list("order", flat=True).first() or 0)
-    by_code, logic_banks = {}, {}
+    by_code, logic_sets = {}, {}   # logic_sets: тўплам рақами -> [саволлар]
+    logic_bank = None              # барча мантиқий тўпламлар битта бўлимда
 
     def note(bank, n):
         report["banks"].append({"name": bank.name, "kind": bank.get_kind_display(), "count": n})
@@ -274,7 +275,9 @@ def import_parsed(parsed, source, user=None, create_tests=True):
         order = order_base + idx
         intro = " ".join(s.intro)
         if s.kind == "logic":
-            bank, _ = _bank(source, s.name, Kind.LOGIC, parsed.logic_instruction, order)
+            if logic_bank is None:
+                logic_bank, _ = _bank(source, "Мантиқий тест", Kind.LOGIC, parsed.logic_instruction, order)
+            bank = logic_bank
             keys = parsed.keys[s.set_no]
             for q in s.items:
                 key = keys[q["number"]] + ["", "", ""]
@@ -285,7 +288,8 @@ def import_parsed(parsed, source, user=None, create_tests=True):
                     parts.append(key[2])
                 question, created = _upsert(
                     bank, f"Т{s.set_no}-{q['number']:02d}", title=f"{s.set_no}-тўплам, {q['number']}-тест",
-                    text=f"<p>{escape(q['text'])}</p>", qtype=Question.Type.CHOICE, max_score=1, order=q["number"],
+                    text=f"<p>{escape(q['text'])}</p>", qtype=Question.Type.CHOICE, max_score=1,
+                    order=s.set_no * 100 + q["number"],
                     explanation=" ".join(parts),
                 )
                 report["created" if created else "updated"] += 1
@@ -295,8 +299,7 @@ def import_parsed(parsed, source, user=None, create_tests=True):
                     if letter == correct:
                         question.correct_option = option
                 question.save(update_fields=["correct_option"])
-            logic_banks[s.set_no] = bank
-            note(bank, len(s.items))
+                logic_sets.setdefault(s.set_no, []).append(question)
             continue
 
         if s.kind == "interview":
@@ -320,10 +323,13 @@ def import_parsed(parsed, source, user=None, create_tests=True):
             report["created" if created else "updated"] += 1
         note(bank, len(s.items))
 
+    if logic_bank is not None:
+        note(logic_bank, sum(len(v) for v in logic_sets.values()))
+
     if create_tests and user is not None:
         for spec in SAMPLE_TESTS:
             codes = spec["tasks"] + spec["interview"]
-            if spec["logic_set"] not in logic_banks or any(c not in by_code for c in codes):
+            if spec["logic_set"] not in logic_sets or any(c not in by_code for c in codes):
                 continue
             if Test.objects.filter(title=spec["title"]).exists():
                 report["skipped_tests"].append(spec["title"])
@@ -337,7 +343,7 @@ def import_parsed(parsed, source, user=None, create_tests=True):
             )
             logic = Block.objects.create(test=test, title="Мантиқий фикрлаш тести", kind=Kind.LOGIC,
                                          duration_minutes=40, order=1, description=parsed.logic_instruction)
-            for q in logic_banks[spec["logic_set"]].questions.prefetch_related("options", "criteria"):
+            for q in logic_sets[spec["logic_set"]]:
                 q.copy_to(block=logic)
             practical = Block.objects.create(test=test, title="Ёзма амалий топшириқлар", kind=Kind.PRACTICAL,
                                              duration_minutes=180, order=2, description=PRACTICAL_INSTRUCTION)

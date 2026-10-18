@@ -447,7 +447,26 @@ def bank_edit(request, pk):
 def bank_detail(request, pk):
     bank = get_object_or_404(QuestionBank, pk=pk)
     questions = bank.questions.prefetch_related(*QUESTION_PREFETCH)
-    return render(request, "exam/staff/bank_detail.html", {"bank": bank, "questions": questions})
+    siblings = QuestionBank.objects.filter(kind=bank.kind).exclude(pk=bank.pk).annotate(n=Count("questions")).order_by("name")
+    return render(request, "exam/staff/bank_detail.html", {"bank": bank, "questions": questions, "siblings": siblings})
+
+
+@role_required("is_author")
+@require_POST
+def bank_merge(request, pk):
+    bank = get_object_or_404(QuestionBank, pk=pk)
+    ids = [int(x) for x in request.POST.getlist("merge") if x.isdigit()]
+    others = list(QuestionBank.objects.filter(pk__in=ids, kind=bank.kind).exclude(pk=bank.pk))
+    if not others:
+        messages.error(request, "Бирлаштириш учун бўлим танланмади.")
+        return redirect("bank_detail", bank.pk)
+    name = request.POST.get("name", "").strip()[:255]
+    bank.merge_from(others)
+    if name and name != bank.name:
+        bank.name = name
+        bank.save(update_fields=["name"])
+    messages.success(request, f"{len(others)} та бўлим «{bank.name}» га бирлаштирилди. Жами {bank.questions.count()} та савол.")
+    return redirect("bank_detail", bank.pk)
 
 
 # ---------------------------------------------------------------- Tekshiruvchi

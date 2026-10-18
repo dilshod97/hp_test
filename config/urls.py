@@ -44,6 +44,7 @@ urlpatterns = [
     path("staff/banks/import/", s.bank_import, name="bank_import"),
     path("staff/banks/<int:pk>/", s.bank_detail, name="bank_detail"),
     path("staff/banks/<int:pk>/edit/", s.bank_edit, name="bank_edit"),
+    path("staff/banks/<int:pk>/merge/", s.bank_merge, name="bank_merge"),
     path("staff/banks/<int:bank_pk>/questions/new/", s.bank_question_create, name="bank_question_create"),
     path("staff/questions/<int:pk>/edit/", s.question_edit, name="question_edit"),
     path("staff/questions/<int:pk>/delete/", s.question_delete, name="question_delete"),

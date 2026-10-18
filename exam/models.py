@@ -68,6 +68,30 @@ class QuestionBank(models.Model):
     def __str__(self):
         return self.name
 
+    def merge_from(self, others):
+        """Бошқа бўлимларни шу бўлимга қўшади: саволлар, блок манбалари; бўш бўлимлар ўчирилади."""
+        from django.db import transaction
+
+        with transaction.atomic():
+            for other in others:
+                if other.pk == self.pk:
+                    continue
+                other.questions.update(bank=self)
+                for rule in list(other.rules.all()):
+                    target = BlockRule.objects.filter(block=rule.block, bank=self).first()
+                    if target:
+                        target.count += rule.count
+                        target.save(update_fields=["count"])
+                        Question.objects.filter(rule=rule).update(rule=target)
+                        rule.delete()
+                    else:
+                        rule.bank = self
+                        rule.save(update_fields=["bank"])
+                other.delete()
+            for i, q in enumerate(self.questions.order_by("code", "order", "pk"), start=1):
+                if q.order != i:
+                    Question.objects.filter(pk=q.pk).update(order=i)
+
 
 class Test(models.Model):
     class ReviewMode(models.TextChoices):

@@ -11,6 +11,17 @@
   </div>
 </div>
 {% if bank.description %}<div class="alert info">{{ bank.description }}</div>{% endif %}
+{% if siblings %}
+<details class="card" style="padding:0">
+  <summary style="padding:16px 20px;font-weight:600">{% icon "copy" %} Бошқа бўлимларни шу бўлимга бирлаштириш</summary>
+  <form method="post" action="{% url 'bank_merge' bank.pk %}" style="padding:0 20px 20px" data-confirm="Танланган бўлимлардаги барча саволлар шу бўлимга кўчади ва улар ўчирилади. Тестлардаги манбалар ҳам шу бўлимга ўтади. Давом этасизми?">{% csrf_token %}
+    <p class="muted small">Танланган бўлимларнинг саволлари шу бўлимга кўчади, бўш қолган бўлимлар ўчирилади. Тайёр тестлар ва уларнинг манбалари сақланади.</p>
+    <div class="field"><ul>{% for b in siblings %}<li><label><input type="checkbox" name="merge" value="{{ b.pk }}"> {{ b.name }} <span class="muted">({{ b.n }} та)</span></label></li>{% endfor %}</ul></div>
+    <div class="field" style="max-width:520px"><label for="mname">Бирлашган бўлим номи</label><input id="mname" type="text" name="name" value="{{ bank.name }}"></div>
+    <button class="btn">Бирлаштириш</button>
+  </form>
+</details>
+{% endif %}
 <div class="card flush">
   <div class="toolbar"><input class="search" type="text" id="filter" placeholder="Савол матни ёки сарлавҳа бўйича қидириш…"></div>
   <div class="card-body">
