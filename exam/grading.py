@@ -243,3 +243,17 @@ def summary(attempt):
         "final": final.quantize(TWO_PLACES) if complete else None,
         "partial": final.quantize(TWO_PLACES),
     }
+
+
+def missing_reviewers(attempt):
+    """Нечта эксперт етишмаяпти (тестга эксперт бириктирилмагани сабабли иш тиқилиб қолганда)."""
+    if attempt.status != Attempt.Status.FINISHED or not manual_answers(attempt).exists():
+        return 0
+    return max(0, required_reviews(attempt) - attempt.reviews.count())
+
+
+def refresh_test_attempts(test):
+    """Текшириш тартиби ёки экспертлар ўзгарганда кутиб турган ишларни қайта ҳисоблайди."""
+    for attempt in test.attempts.filter(status__in=[Attempt.Status.FINISHED, Attempt.Status.GRADED]):
+        ensure_reviews(attempt)
+        recompute(attempt)

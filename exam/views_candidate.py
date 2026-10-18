@@ -209,8 +209,10 @@ def done(request):
     attempt = _current_attempt(request)
     if attempt and attempt.status == Attempt.Status.IN_PROGRESS:
         return redirect("exam_take")
-    request.session.pop(SESSION_KEY, None)
-    return render(request, "exam/candidate/done.html", {"attempt": attempt})
+    if attempt is None:
+        return redirect("exam_login")
+    request.session.flush()  # кейинги номзод тоза сессия билан киради
+    return render(request, "exam/candidate/done.html", {"attempt": attempt, "seconds": 15})
 
 
 # ---------------------------------------------------------------- Шахсни тасдиқлаш учун расм

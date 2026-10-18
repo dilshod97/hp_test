@@ -34,7 +34,7 @@
         <div><a class="table-link" href="{% url 'result_detail' a.pk %}">{{ a.candidate.full_name }}</a><div class="muted small">{{ a.candidate.birth_display }} · <span class="mono">{{ a.code }}</span></div></div>
       </div></td>
       <td class="small">{{ a.test.title }}</td>
-      <td><span class="badge {{ a.status }}">{{ a.get_status_display }}</span>{% if a.third_review_needed %}<div class="small muted" style="margin-top:4px" title="{{ a.third_review_reason }}">⚖ 3-текширув</div>{% endif %}</td>
+      <td><span class="badge {{ a.status }}">{{ a.get_status_display }}</span>{% if row.missing %}<div class="small" style="margin-top:4px;color:var(--danger);font-weight:600">⚠ {{ row.missing }} та эксперт йўқ</div>{% elif a.third_review_needed %}<div class="small muted" style="margin-top:4px" title="{{ a.third_review_reason }}">⚖ 3-текширув</div>{% endif %}</td>
       <td class="num">{% if s.logic %}{{ s.logic.score|num }}<span class="muted">/{{ s.logic.max|num }}</span>{% else %}—{% endif %}</td>
       <td class="num">{% if s.practical %}{{ s.practical.score|num }}<span class="muted">/{{ s.practical.max|num }}</span>{% if a.status == 'finished' %}<div class="muted small">оралиқ</div>{% endif %}{% else %}—{% endif %}</td>
       <td class="num">{% if s.interview %}{{ s.interview.score|num }}<span class="muted">/{{ s.interview.max|num }}</span>{% else %}—{% endif %}</td>

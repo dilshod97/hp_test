@@ -114,7 +114,10 @@ def test_edit(request, pk):
     test = get_object_or_404(Test, pk=pk)
     form = TestForm(request.POST or None, instance=test)
     if request.method == "POST" and form.is_valid():
+        mode_changed = "review_mode" in form.changed_data
         form.save()
+        if mode_changed:
+            grading.refresh_test_attempts(test)  # масалан, «битта эксперт» га ўтса — кутаётган ишлар баҳоланади
         messages.success(request, "Сақланди.")
         return redirect("test_detail", test.pk)
     return render(request, "exam/staff/form.html", {"form": form, "title": f"Тест созламалари: {test}", "back": test})
@@ -612,9 +615,8 @@ def test_checkers(request, pk):
     form = TestCheckersForm(request.POST or None, instance=test)
     if request.method == "POST" and form.is_valid():
         form.save()
-        # Tekshiruvchisiz qolgan ishlarga endi biriktirish
-        for attempt in test.attempts.filter(status=Attempt.Status.FINISHED):
-            grading.ensure_reviews(attempt)
+        # Экспертсиз қолган ишларга энди бириктириш
+        grading.refresh_test_attempts(test)
         messages.success(request, "Экспертлар бириктирилди.")
         return redirect("test_detail", test.pk)
     return render(request, "exam/staff/form.html", {"form": form, "title": f"Экспертлар: {test}", "back": test})
@@ -801,7 +803,7 @@ def _results_queryset(request):
 def results(request):
     Attempt.finish_abandoned()
     Attempt.purge_old_photos()
-    rows = [{"a": a, "s": grading.summary(a)} for a in _results_queryset(request)]
+    rows = [{"a": a, "s": grading.summary(a), "missing": grading.missing_reviewers(a)} for a in _results_queryset(request)]
     base = Attempt.objects.all()
     if request.GET.get("test"):
         base = base.filter(test_id=request.GET["test"])
@@ -867,6 +869,7 @@ def result_detail(request, pk):
     return render(request, "exam/staff/result_detail.html", {
         "attempt": attempt, "rows": rows, "reviews": reviews,
         "summary": grading.summary(attempt),
+        "missing": grading.missing_reviewers(attempt),
         "block_attempts": attempt.block_attempts.select_related("block"),
         "free_checkers": User.objects.filter(role=User.Role.CHECKER, is_active=True).exclude(pk__in=reviewer_ids),
         "interview": interview,
@@ -883,6 +886,7 @@ def result_action(request, pk):
         checker = User.objects.filter(pk=request.POST.get("checker"), role=User.Role.CHECKER).first()
         if checker and not attempt.reviews.filter(checker=checker).exists():
             Review.objects.create(attempt=attempt, checker=checker, round=attempt.reviews.count() + 1)
+            grading.ensure_reviews(attempt)
             grading.recompute(attempt)
             messages.success(request, f"{checker} эксперт сифатида қўшилди.")
     elif action in ("reopen_review", "delete_review"):

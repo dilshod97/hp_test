@@ -960,3 +960,44 @@ class AssignmentEditTests(Base):
         a.refresh_from_db()
         self.assertEqual(a.test_id, other.pk)
         self.assertContains(self.client.get(reverse("assignment_edit", args=[a.pk])), "тестни ўзгартириб бўлмайди")
+
+
+class DonePageTests(Base):
+    def test_done_returns_to_login(self):
+        self.take_test()  # take_test exam_done ни очади
+        self.login_candidate()  # якунлангандан кейин
+        r = self.client.get(reverse("exam_done"))
+        self.assertRedirects(r, reverse("exam_login"))  # сессия тозаланган
+        self.assertEqual(self.client.get(reverse("exam_take")).status_code, 302)
+
+
+class MissingReviewerTests(Base):
+    def test_stuck_work_shown_and_fixed_by_single_mode(self):
+        self.test.checkers.set([])
+        attempt = self.take_test()
+        self.assertEqual(attempt.reviews.count(), 0)
+        self.client.force_login(self.admin)
+        # суперадмин битта экспертни қўлда қўшади
+        self.client.post(reverse("result_action", args=[attempt.pk]), {"action": "add_review", "checker": self.c1.pk})
+        self.grade(self.c1, attempt, {self.q_ma1: [2] * 5, self.q_ma2: [1] * 5})
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.status, Attempt.Status.FINISHED)  # иккинчи эксперт кутилмоқда
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse("results")), "1 та эксперт йўқ")
+        self.assertContains(self.client.get(reverse("result_detail", args=[attempt.pk])), "Яна 1 та эксперт керак")
+        # «Битта эксперт» га ўтказилса — дарҳол баҳоланади
+        self.client.force_login(self.author)
+        self.client.post(reverse("test_edit", args=[self.test.pk]), {
+            "title": self.test.title, "review_mode": "single", "is_active": "on",
+            "weight_practical": 55, "weight_logic": 15, "weight_interview": 15, "weight_defense": 15,
+            "interview_questions": [self.iv.pk]})
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.status, Attempt.Status.GRADED)
+        self.assertEqual(attempt.answers.get(question=self.q_ma1).score, 10)
+
+    def test_assigning_checkers_fills_missing(self):
+        self.test.checkers.set([])
+        attempt = self.take_test()
+        self.client.force_login(self.admin)
+        self.client.post(reverse("test_checkers", args=[self.test.pk]), {"checkers": [self.c1.pk, self.c2.pk]})
+        self.assertEqual(attempt.reviews.count(), 2)

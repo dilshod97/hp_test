@@ -130,6 +130,11 @@
   <div class="card flush">
     <div class="card-head"><h2>{% icon "users" %} Экспертлар</h2></div>
     <div class="card-body">
+      {% if missing %}<div class="alert" style="background:var(--danger-soft);border-color:#fecaca;color:#991b1b">
+        <b>Яна {{ missing }} та эксперт керак — иш шунинг учун «Текширилмоқда» ҳолатида турибди.</b><br>
+        Тест «{{ attempt.test.get_review_mode_display }}» режимида, лекин тестга етарли эксперт бириктирилмаган. Ечим:
+        пастда эксперт қўшинг, ёки <a href="{% url 'test_checkers' attempt.test_id %}">тестга экспертлар бириктиринг</a>,
+        ёки <a href="{% url 'test_edit' attempt.test_id %}">тест созламасида «Битта эксперт»</a> ни танланг.</div>{% endif %}
       {% if attempt.third_review_needed %}<div class="alert warn">⚖ Учинчи текширув: {{ attempt.third_review_reason }}. Ҳар мезон бўйича уч баҳо медианаси олинади.</div>{% endif %}
       {% for r in reviews %}
       <div class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)">
