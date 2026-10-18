@@ -336,7 +336,7 @@ def import_parsed(parsed, source, user=None, create_tests=True):
                 continue
             test = Test.objects.create(
                 title=spec["title"], is_active=False, created_by=user, shuffle_questions=True,
-                shuffle_options=False, review_mode=Test.ReviewMode.DOUBLE,
+                shuffle_options=False, review_mode=Test.ReviewMode.SINGLE,
                 description=("Тест икки қисмдан иборат: мантиқий тест ва ёзма амалий топшириқлар. "
                              "Интернет, сунъий интеллект, калькулятор ва ташқи ёрдамдан фойдаланиш мумкин эмас. "
                              "Қоралама қоғозга рухсат берилади."),

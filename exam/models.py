@@ -118,7 +118,7 @@ class Test(models.Model):
                   "Камера бўлмаса, тест расмсиз давом этади. Расмни фақат суперадмин кўради.",
     )
     review_mode = models.CharField(
-        "Текшириш тартиби", max_length=10, choices=ReviewMode.choices, default=ReviewMode.DOUBLE,
+        "Текшириш тартиби", max_length=10, choices=ReviewMode.choices, default=ReviewMode.SINGLE,
     )
     checkers = models.ManyToManyField(
         User, verbose_name="Экспертлар", blank=True, related_name="checker_tests",
