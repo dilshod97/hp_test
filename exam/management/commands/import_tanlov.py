@@ -13,7 +13,7 @@ from exam.models import User
 
 
 class Command(BaseCommand):
-    help = "Танлов материаллари .docx файлидан саволлар базаси ва намуна тестларни яратади."
+    help = "Танлов материаллари .docx файлидан саволлар базаси ва тестларни яратади."
 
     def add_arguments(self, parser):
         parser.add_argument("path")
