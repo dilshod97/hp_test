@@ -8,7 +8,7 @@
 """
 from django.core.management.base import BaseCommand, CommandError
 
-from exam.importer import import_parsed, parse
+from exam.importer import import_parsed, parse, use_keys_from
 from exam.models import User
 
 
@@ -20,9 +20,12 @@ class Command(BaseCommand):
         parser.add_argument("--source", help="Манба номи (стандарт: ҳужжат сарлавҳаси)")
         parser.add_argument("--no-tests", action="store_true", help="Намуна тестларсиз")
         parser.add_argument("--author", help="Тестлар муаллифи (логин). Стандарт: биринчи суперадмин")
+        parser.add_argument("--keys-from", help="Мантиқий тест калитларини шу (асл) ҳужжатдан олиш")
 
-    def handle(self, path, source=None, no_tests=False, author=None, **opts):
+    def handle(self, path, source=None, no_tests=False, author=None, keys_from=None, **opts):
         parsed = parse(path)
+        if keys_from:
+            parsed = use_keys_from(parsed, parse(keys_from))
         if parsed.errors:
             raise CommandError("Ҳужжатда хатолар бор:\n  " + "\n  ".join(parsed.errors))
         user = (User.objects.filter(username=author).first() if author

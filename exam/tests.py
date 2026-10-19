@@ -1080,3 +1080,28 @@ class UserDeleteTests(Base):
         # Фақат суперадмин
         self.client.force_login(self.author)
         self.assertEqual(self.client.post(reverse("user_delete", args=[self.c3.pk])).status_code, 403)
+
+
+class ResetAndKeysTests(Base):
+    def test_reset_keeps_users(self):
+        self.take_test()
+        n_users = User.objects.count()
+        with self.assertRaises(Exception):
+            call_command("reset_tanlov", verbosity=0)
+        call_command("reset_tanlov", yes_delete_everything=True, verbosity=0)
+        self.assertEqual((Test.objects.count(), Attempt.objects.count(), QuestionBank.objects.count(),
+                          Candidate.objects.count()), (0, 0, 0, 0))
+        self.assertEqual(User.objects.count(), n_users)
+
+    def test_keys_from_original(self):
+        from .importer import parse, use_keys_from
+        orig = parse(make_docx(logic_key="Б"))
+        edited_doc = make_docx(logic_key="Б")  # калит жадвалисиз нусхани тақлид қиламиз
+        edited = parse(edited_doc)
+        edited.keys = {}
+        ok = use_keys_from(edited, orig)
+        self.assertEqual(ok.errors, [])
+        # Вариантлар ўзгарган бўлса — хато
+        changed = parse(make_docx())
+        changed.sections[1].items[0]["options"][0] = ("А", "бошқа")
+        self.assertTrue(any("фарқ қилади" in e for e in use_keys_from(changed, orig).errors))

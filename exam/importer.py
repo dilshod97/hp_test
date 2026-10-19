@@ -192,6 +192,28 @@ def parse(fileobj):
     return out
 
 
+def use_keys_from(parsed, original):
+    """Тўғри жавобларни бошқа ҳужжатдан (масалан, асл нусхадан) олади.
+    Ҳар бир саволнинг вариантлари (ҳарфлари ва матни) бир хил бўлиши шарт — акс ҳолда хато."""
+    orig = {(s.set_no, it["number"]): it for s in original.sections if s.kind == "logic" for it in s.items}
+    problems = []
+    for s in parsed.sections:
+        if s.kind != "logic":
+            continue
+        for it in s.items:
+            o = orig.get((s.set_no, it["number"]))
+            key = original.keys.get(s.set_no, {}).get(it["number"])
+            if o is None or not key:
+                problems.append(f"{s.set_no}-тўплам, {it['number']}-савол: асл ҳужжатда калит топилмади.")
+            elif o["options"] != it["options"]:
+                problems.append(f"{s.set_no}-тўплам, {it['number']}-савол: вариантлар асл ҳужжатдагидан фарқ қилади — калитни олиб бўлмайди.")
+    parsed.keys = original.keys
+    parsed.errors, parsed.warnings = [], []
+    _validate(parsed)
+    parsed.errors = problems + parsed.errors
+    return parsed
+
+
 def _validate(out):
     if not out.sections and not out.errors:
         out.errors.append("Ҳужжатда савол топилмади. Формат йўриқномасини текширинг.")
