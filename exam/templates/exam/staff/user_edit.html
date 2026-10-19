@@ -1,8 +1,15 @@
 {% extends "exam/base_staff.html" %}
+{% load exam_tags %}
 {% block title %}{{ obj.username }}{% endblock %}
 {% block content %}
 <div class="crumbs"><a href="{% url 'user_list' %}">Фойдаланувчилар</a> /</div>
-<div class="page-head"><div><h1>{{ obj.get_full_name|default:obj.username }}</h1><div class="meta"><span class="mono">{{ obj.username }}</span><span>{{ obj.get_role_display }}</span></div></div></div>
+<div class="page-head"><div><h1>{{ obj.get_full_name|default:obj.username }}</h1><div class="meta"><span class="mono">{{ obj.username }}</span><span>{{ obj.get_role_display }}</span>
+  {% if not obj.is_active %}<span class="badge off">Блокланган</span>{% endif %}</div></div>
+  {% if obj != user %}<div class="actions">
+    {% if blockers %}<span class="muted small" style="max-width:360px">Ўчириб бўлмайди: {{ blockers|join:", " }}. Блоклаш учун «Фаол» белгисини олиб ташланг.</span>
+    {% else %}<form method="post" action="{% url 'user_delete' obj.pk %}" class="inline" data-danger data-confirm="«{{ obj.username }}» бутунлай ўчирилсинми?">{% csrf_token %}<button class="btn danger">{% icon "trash" %} Ўчириш</button></form>{% endif %}
+  </div>{% endif %}
+</div>
 <div class="grid cols-2">
   <div class="card"><h2>Маълумотлар</h2>
     <form method="post">{% csrf_token %}{% include "exam/_fields.html" with form=form %}<button class="btn" name="save_user">Сақлаш</button></form></div>

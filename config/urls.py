@@ -55,6 +55,7 @@ urlpatterns = [
     path("staff/users/", s.user_list, name="user_list"),
     path("staff/users/new/", s.user_create, name="user_create"),
     path("staff/users/<int:pk>/", s.user_edit, name="user_edit"),
+    path("staff/users/<int:pk>/delete/", s.user_delete, name="user_delete"),
     path("staff/candidates/", s.candidate_list, name="candidate_list"),
     path("staff/candidates/add/", s.candidate_add, name="candidate_add"),
     path("staff/candidates/import/", s.candidate_import, name="candidate_import"),

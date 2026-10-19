@@ -606,7 +606,38 @@ def user_edit(request, pk):
                 form.save()
                 messages.success(request, "Сақланди.")
                 return redirect("user_list")
-    return render(request, "exam/staff/user_edit.html", {"form": form, "pw_form": pw_form, "obj": user})
+    return render(request, "exam/staff/user_edit.html", {"form": form, "pw_form": pw_form, "obj": user,
+                                                         "blockers": _delete_blockers(user)})
+
+
+def _delete_blockers(user):
+    """Фойдаланувчини ўчиришга нима тўсқинлик қилади (тарих йўқолмаслиги учун)."""
+    reasons = []
+    n = user.reviews.count()
+    if n:
+        reasons.append(f"{n} та ишни текширган")
+    n = user.created_tests.count()
+    if n:
+        reasons.append(f"{n} та тест яратган")
+    return reasons
+
+
+@role_required("is_superadmin")
+@require_POST
+def user_delete(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    if user == request.user:
+        messages.error(request, "Ўзингизни ўчира олмайсиз.")
+        return redirect("user_list")
+    reasons = _delete_blockers(user)
+    if reasons:
+        messages.error(request, f"«{user.username}» ни ўчириб бўлмайди: " + ", ".join(reasons) +
+                       ". Тарих сақланиши учун уни блокланг — тизимга кира олмайди.")
+        return redirect("user_edit", user.pk)
+    name = user.username
+    user.delete()
+    messages.success(request, f"«{name}» ўчирилди.")
+    return redirect("user_list")
 
 
 @role_required("is_superadmin")

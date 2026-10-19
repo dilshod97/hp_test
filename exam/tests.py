@@ -1057,3 +1057,26 @@ class NoInterviewTests(Base):
         s = grading.summary(attempt)
         self.assertIsNone(s["interview"])
         self.assertEqual(s["final"], Decimal("80") + Decimal("10"))  # амалий 20/20 → 80, мантиқий 1/2 → 10
+
+
+class UserDeleteTests(Base):
+    def test_delete_rules(self):
+        self.client.force_login(self.admin)
+        free = User.objects.create_user("bosh", password="x" * 10, role=User.Role.CHECKER)
+        self.client.post(reverse("user_delete", args=[free.pk]))
+        self.assertFalse(User.objects.filter(pk=free.pk).exists())
+        # Иш текширган эксперт ўчирилмайди
+        attempt = self.take_test()
+        reviewer = attempt.reviews.first().checker
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("user_delete", args=[reviewer.pk]), follow=True)
+        self.assertContains(r, "ишни текширган")
+        self.assertTrue(User.objects.filter(pk=reviewer.pk).exists())
+        # Тест яратган ва ўзини ўчириб бўлмайди
+        self.client.post(reverse("user_delete", args=[self.author.pk]))
+        self.assertTrue(User.objects.filter(pk=self.author.pk).exists())
+        self.client.post(reverse("user_delete", args=[self.admin.pk]))
+        self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+        # Фақат суперадмин
+        self.client.force_login(self.author)
+        self.assertEqual(self.client.post(reverse("user_delete", args=[self.c3.pk])).status_code, 403)
