@@ -32,8 +32,6 @@
     <div class="name">{{ x.candidate.full_name }}</div>
     <div class="test">{{ x.test.title }}</div>
     <div class="creds"><span>Логин:</span><b>{{ x.login }}</b><span>Парол:</span><b>{{ x.password }}</b></div>
-    <div class="how">Компьютердаги «test» белгисини очинг, логин ва паролни киритиб «Тестни бошлаш» ни босинг.
-      Варақчани бошқаларга берманг. Тест бир марта топширилади.</div>
   </div>
   {% empty %}<div class="empty">
     {% if skipped %}<b>Варақча чиқарилмади:</b> {% for x in skipped %}{{ x.candidate.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
