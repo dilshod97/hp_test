@@ -1021,3 +1021,39 @@ class HrResultsTests(Base):
         self.assertEqual(self.client.get(reverse("results")).status_code, 403)
         self.assertEqual(self.client.get(reverse("result_detail", args=[attempt.pk])).status_code, 403)
         self.assertEqual(self.client.get(reverse("results_export")).status_code, 403)
+
+
+class CandidateListFilterTests(Base):
+    def test_edit_returns_to_same_view_and_filter_is_visible(self):
+        self.client.force_login(self.admin)
+        a = self.assignment
+        r = self.client.get(reverse("assignment_edit", args=[a.pk]) + "?back=q%3DKar")
+        self.assertContains(r, 'href="/staff/candidates/?q=Kar"')
+        r = self.client.post(reverse("assignment_edit", args=[a.pk]), {
+            "back": "", "last_name": "Karimov", "first_name": "Aziz", "middle_name": "Olimovich", "birth": "1995", "test": self.test.pk})
+        self.assertRedirects(r, reverse("candidate_list"))
+        r = self.client.get(reverse("candidate_list") + f"?test={self.test.pk}")
+        self.assertContains(r, "Филтр ёқилган")
+        self.assertContains(r, "Барчасини кўрсатиш")
+        # Ташқи манзилга йўналтириб бўлмайди
+        r = self.client.get(reverse("assignment_edit", args=[a.pk]) + "?back=//evil.com")
+        self.assertNotContains(r, "evil.com\"")
+
+
+class NoInterviewTests(Base):
+    def test_final_without_interview_and_defense(self):
+        self.client.force_login(self.author)
+        data = {"title": self.test.title, "review_mode": "single", "is_active": "on",
+                "weight_practical": 80, "weight_logic": 20, "weight_interview": 15, "weight_defense": 0}
+        r = self.client.post(reverse("test_edit", args=[self.test.pk]), data)
+        self.assertContains(r, "Суҳбат саволлари танланмаган")
+        data["weight_interview"] = 0
+        data["weight_practical"] = 80
+        self.assertEqual(self.client.post(reverse("test_edit", args=[self.test.pk]), data).status_code, 302)
+        attempt = self.take_test()
+        self.grade(attempt.reviews.first().checker, attempt, {self.q_ma1: [2] * 5, self.q_ma2: [2] * 5})
+        attempt.refresh_from_db()
+        from . import grading
+        s = grading.summary(attempt)
+        self.assertIsNone(s["interview"])
+        self.assertEqual(s["final"], Decimal("80") + Decimal("10"))  # амалий 20/20 → 80, мантиқий 1/2 → 10

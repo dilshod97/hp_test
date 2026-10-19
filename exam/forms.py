@@ -144,6 +144,9 @@ class TestForm(forms.ModelForm):
         total = sum(data.get(f) or 0 for f in ["weight_practical", "weight_logic", "weight_interview", "weight_defense"])
         if total != 100:
             self.add_error(None, f"Вазнлар йиғиндиси 100 бўлиши керак (ҳозир {total:g}).")
+        if (data.get("weight_interview") or 0) > 0 and not data.get("interview_questions"):
+            self.add_error("weight_interview", "Суҳбат саволлари танланмаган. Суҳбат ўтказилмаса, вазнни 0 қилинг "
+                                               "ва 100 ни бошқа қисмларга тақсимланг.")
         return data
 
 

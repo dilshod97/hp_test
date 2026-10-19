@@ -36,6 +36,12 @@
     <button class="btn secondary" type="submit" form="print-form" id="print-selected" disabled>🖨 Танланганларни чоп этиш</button>
     {% if params.test %}<a class="btn" href="{% url 'candidate_print' %}?test={{ params.test }}" target="_blank">🖨 Барчасини чоп этиш</a>{% endif %}
   </form>
+  {% if params.test or params.q %}
+  <div class="alert info small" style="margin:12px 20px 0;display:flex;justify-content:space-between;gap:12px;align-items:center">
+    <span>Филтр ёқилган: {% if params.test %}{% for t in tests %}{% if params.test == t.pk|stringformat:'s' %}<b>{{ t.title }}</b>{% endif %}{% endfor %}{% endif %}{% if params.q %} · «{{ params.q }}»{% endif %} — {{ rows|length }} та номзод кўрсатилмоқда.</span>
+    <a href="{% url 'candidate_list' %}" class="nowrap"><b>Барчасини кўрсатиш</b></a>
+  </div>
+  {% endif %}
   <div class="table-wrap"><table>
     <thead><tr><th style="width:36px"><input type="checkbox" id="check-all" title="Ҳаммасини белгилаш"></th><th>Ф.И.Ш.</th><th>Туғилган</th><th>Тест</th><th>Логин</th><th>Парол</th><th>Ҳолат</th><th></th></tr></thead>
     <tbody>
@@ -44,13 +50,13 @@
       <td>{% if not row.attempt or row.attempt.status == 'in_progress' %}<input type="checkbox" name="id" value="{{ x.pk }}" form="print-form" class="pick-row">{% else %}<span title="Тестни топширган — варақча керак эмас" class="muted">—</span>{% endif %}</td>
       <td><b>{{ x.candidate.full_name }}</b></td>
       <td class="nowrap">{{ x.candidate.birth_display }}</td>
-      <td class="small">{% if not row.attempt %}<a href="{% url 'assignment_edit' x.pk %}" title="Тестни ўзгартириш" style="color:inherit;border-bottom:1px dashed var(--border-strong)">{{ x.test.title }}</a>{% else %}{{ x.test.title }}{% endif %}{% if not x.test.is_active %} <span class="badge off">нофаол</span>{% endif %}</td>
+      <td class="small">{% if not row.attempt %}<a href="{% url 'assignment_edit' x.pk %}?back={{ request.GET.urlencode|urlencode }}" title="Тестни ўзгартириш" style="color:inherit;border-bottom:1px dashed var(--border-strong)">{{ x.test.title }}</a>{% else %}{{ x.test.title }}{% endif %}{% if not x.test.is_active %} <span class="badge off">нофаол</span>{% endif %}</td>
       <td class="mono" style="font-size:15px">{{ x.login }}</td>
       <td class="mono" style="font-size:15px">{{ x.password }}{% if x.locked_until %} <span class="badge danger" title="Кўп нотўғри уриниш">🔒</span>{% endif %}</td>
       <td>{% if row.attempt %}{% if user.is_superadmin %}<a href="{% url 'result_detail' row.attempt.pk %}">{% endif %}<span class="badge {{ row.attempt.status }}">{{ row.attempt.get_status_display }}</span>{% if user.is_superadmin %}</a>{% endif %}
           {% else %}<span class="badge plain">Бошламаган</span>{% endif %}</td>
       <td class="num nowrap">
-        <a class="btn ghost sm icon" href="{% url 'assignment_edit' x.pk %}" title="Таҳрирлаш (Ф.И.Ш., йил, тест)">{% icon "edit" %}</a>
+        <a class="btn ghost sm icon" href="{% url 'assignment_edit' x.pk %}?back={{ request.GET.urlencode|urlencode }}" title="Таҳрирлаш (Ф.И.Ш., йил, тест)">{% icon "edit" %}</a>
         {% if not row.attempt or row.attempt.status == 'in_progress' %}<a class="btn ghost sm" href="{% url 'candidate_print' %}?id={{ x.pk }}" target="_blank" title="Варақчани чоп этиш">🖨</a>{% endif %}
         {% if not row.attempt %}
         <form method="post" action="{% url 'assignment_reset_password' x.pk %}" class="inline" data-confirm="Янги парол берилсинми? Эски варақча ишламай қолади.">{% csrf_token %}<button class="btn ghost sm" title="Янги парол">↻</button></form>

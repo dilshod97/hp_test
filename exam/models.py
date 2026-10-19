@@ -134,7 +134,8 @@ class Test(models.Model):
     weight_interview = models.DecimalField("Вазн: суҳбат", max_digits=5, decimal_places=2, default=Decimal(15))
     weight_defense = models.DecimalField(
         "Вазн: амалий иш ҳимояси", max_digits=5, decimal_places=2, default=Decimal(15),
-        help_text="Ҳимоя бали комиссия томонидан 0 дан шу қийматгача киритилади",
+        help_text="Ҳимоя бали комиссия томонидан 0 дан шу қийматгача киритилади. Суҳбат ёки ҳимоя ўтказилмаса, "
+                  "уларнинг вазнини 0 қилинг — якуний балл ёзма қисмлар бўйича дарҳол ҳисобланади.",
     )
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="created_tests")
     created_at = models.DateTimeField(auto_now_add=True)

@@ -700,6 +700,20 @@ def assignment_delete(request, pk):
     return redirect(f"{reverse('candidate_list')}?test={x.test_id}")
 
 
+def _back_query(request):
+    """Фақат шу рўйхатнинг ўз филтри (test=, q=) — ташқи манзилга йўналтириб бўлмайди."""
+    from urllib.parse import parse_qsl, urlencode
+
+    raw = request.GET.get("back") or request.POST.get("back") or ""
+    pairs = [(k, v) for k, v in parse_qsl(raw) if k in ("test", "q")]
+    return urlencode(pairs)
+
+
+def _list_back(request):
+    back = _back_query(request)
+    return f"{reverse('candidate_list')}?{back}" if back else reverse("candidate_list")
+
+
 @role_required("can_manage_candidates")
 def assignment_edit(request, pk):
     """Номзод маълумотлари ва тестини ўзгартириш. Логин ва парол ўзгармайди."""
@@ -732,8 +746,10 @@ def assignment_edit(request, pk):
                     x.test = new_test
                     x.save(update_fields=["test"])
             messages.success(request, f"{c.full_name}: маълумотлар сақланди. Логин ва парол ўзгармади — варақча ишлайверади.")
-            return redirect(f"{reverse('candidate_list')}?test={x.test_id}&new={x.pk}")
-    return render(request, "exam/staff/assignment_edit.html", {"form": form, "x": x, "started": started})
+            return redirect(_list_back(request))
+    return render(request, "exam/staff/assignment_edit.html", {
+        "form": form, "x": x, "started": started, "back_url": _list_back(request),
+        "back": _back_query(request)})
 
 
 @role_required("can_manage_candidates")
