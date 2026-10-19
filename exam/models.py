@@ -50,6 +50,7 @@ class Kind(models.TextChoices):
     """Blok va bank turi. Yakuniy ball shu tur bo'yicha hisoblanadi."""
     PRACTICAL = "practical", "Ёзма амалий топшириқ"
     LOGIC = "logic", "Мантиқий тест"
+    TEST = "test", "Касбий тест (ACCA, иқтисодиёт ва ҳ.к.)"
     INTERVIEW = "interview", "Суҳбат саволлари"
     OTHER = "other", "Бошқа"
 
@@ -144,6 +145,10 @@ class Test(models.Model):
     )
     weight_practical = models.DecimalField("Вазн: ёзма амалий", max_digits=5, decimal_places=2, default=Decimal(55))
     weight_logic = models.DecimalField("Вазн: мантиқий тест", max_digits=5, decimal_places=2, default=Decimal(15))
+    weight_test = models.DecimalField(
+        "Вазн: касбий тест", max_digits=5, decimal_places=2, default=Decimal(0),
+        help_text="«Касбий тест» турдаги блоклар (ACCA, иқтисодиёт, молия, статистика) учун",
+    )
     weight_interview = models.DecimalField("Вазн: суҳбат", max_digits=5, decimal_places=2, default=Decimal(15))
     weight_defense = models.DecimalField(
         "Вазн: амалий иш ҳимояси", max_digits=5, decimal_places=2, default=Decimal(15),

@@ -124,7 +124,8 @@ class TestForm(forms.ModelForm):
         model = Test
         fields = [
             "title", "description", "language", "ru_version", "is_active", "free_navigation", "require_photo", "shuffle_questions", "shuffle_options", "review_mode",
-            "interview_questions", "weight_practical", "weight_logic", "weight_interview", "weight_defense",
+            "interview_questions", "weight_practical", "weight_logic", "weight_test", "weight_interview",
+            "weight_defense",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
@@ -137,6 +138,7 @@ class TestForm(forms.ModelForm):
             Question.objects.filter(bank__kind=Kind.INTERVIEW).select_related("bank").order_by("bank__order", "order")
         )
         self.fields["language"].required = False  # кўрсатилмаса — ўзбекча
+        self.fields["weight_test"].required = False  # касбий тест блоки бўлмаса — 0
         ru = Test.objects.filter(language=Language.RU)
         if self.instance.pk:
             ru = ru.exclude(pk=self.instance.pk)
@@ -147,12 +149,16 @@ class TestForm(forms.ModelForm):
             self.fields["free_navigation"].disabled = True
             self.fields["free_navigation"].help_text = "Номзодлар тестни бошлаган — бу созламани ўзгартириб бўлмайди."
 
+    def clean_weight_test(self):
+        return self.cleaned_data.get("weight_test") or 0
+
     def clean_language(self):
         return self.cleaned_data.get("language") or Language.UZ
 
     def clean(self):
         data = super().clean()
-        total = sum(data.get(f) or 0 for f in ["weight_practical", "weight_logic", "weight_interview", "weight_defense"])
+        total = sum(data.get(f) or 0 for f in ["weight_practical", "weight_logic", "weight_test", "weight_interview",
+                                                "weight_defense"])
         if total != 100:
             self.add_error(None, f"Вазнлар йиғиндиси 100 бўлиши керак (ҳозир {total:g}).")
         ru = data.get("ru_version")

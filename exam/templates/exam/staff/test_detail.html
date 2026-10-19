@@ -64,7 +64,7 @@
       {% endif %}
     </div>
     {% if b.is_drawn %}<details class="pool"><summary class="muted small" style="padding:12px 20px">Саволлар захирасини кўриш ({{ b.questions.all|length }} та)</summary>{% endif %}
-    {% if b.kind == 'logic' and b.questions.all %}
+    {% if b.kind == 'logic' and b.questions.all or b.kind == 'test' and b.questions.all %}
     {% if b.description %}<p class="muted small" style="padding:14px 20px 0">{{ b.description }}</p>{% endif %}
     <div class="table-wrap"><table class="score-table">
       <thead><tr><th>№</th><th>Савол</th><th class="num">Калит</th><th class="num">Балл</th>{% if not test.is_locked %}<th></th>{% endif %}</tr></thead>
@@ -125,7 +125,7 @@
     <div class="card-body small stack">
       <div class="row between"><span class="muted">Текшириш</span><b>{{ test.get_review_mode_display }}</b></div>
       <div class="row between"><span class="muted">Саволларни аралаштириш</span><b>{{ test.shuffle_questions|yesno:"ҳа,йўқ" }}</b></div>
-      <div class="row between"><span class="muted">Вазнлар (амалий / мантиқий / суҳбат / ҳимоя)</span><b>{{ test.weight_practical|num }} / {{ test.weight_logic|num }} / {{ test.weight_interview|num }} / {{ test.weight_defense|num }}</b></div>
+      <div class="row between"><span class="muted">Вазнлар (амалий / мантиқий / касбий / суҳбат / ҳимоя)</span><b>{{ test.weight_practical|num }} / {{ test.weight_logic|num }} / {{ test.weight_test|num }} / {{ test.weight_interview|num }} / {{ test.weight_defense|num }}</b></div>
     </div>
   </div>
   <div class="card flush">

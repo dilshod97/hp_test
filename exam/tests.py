@@ -491,6 +491,87 @@ class LanguageTests(Base):
         self.assertEqual(banks.filter(kind=Kind.INTERVIEW).count(), 3)
 
 
+class McqImportTests(TestCase):
+    """Тўғри жавоби сариқ белгиланган вариантли тестлар (иқтисод, ACCA)."""
+
+    def make_doc(self):
+        import tempfile
+
+        import docx
+        from docx.enum.text import WD_COLOR_INDEX
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        d = docx.Document()
+        d.add_heading("ACCA бўйича тест саволлари", 1)
+        d.add_paragraph("Битта тўғри жавоб вариантини танланг.")
+        def opt(text, mark=None):
+            p = d.add_paragraph()
+            r = p.add_run(text)
+            if mark == "hl":
+                r.font.highlight_color = WD_COLOR_INDEX.YELLOW
+            if mark == "shd":
+                shd = OxmlElement("w:shd"); shd.set(qn("w:val"), "clear"); shd.set(qn("w:fill"), "FFF200")
+                p._p.get_or_add_pPr().append(shd)
+            return p
+        opt("1. Биринчи савол?"); opt("А) бир"); opt("Б) икки", "hl"); opt("В) уч"); opt("Г) тўрт")
+        d.add_paragraph("Иккинчи савол (рўйхат)?", style="List Paragraph")
+        opt("A) йўқ", "shd"); opt("B) ҳа"); opt("C) балки")
+        opt("3. Учинчи савол?"); opt("- 5%"); opt("+ 4,6%"); opt("- 9%")
+        opt("4. Ҳисобланг: 10 + 5"); opt("Жавоб:"); opt("10 млн сўм"); opt("15 млн сўм", "hl")
+        p = opt("5. Амортизация — пул жамғариш."); p = d.add_paragraph(); p.add_run("Тўғри / "); r = p.add_run("Нотўғри")
+        r.font.highlight_color = WD_COLOR_INDEX.YELLOW
+        f = tempfile.NamedTemporaryFile(suffix=".docx", delete=False); d.save(f.name)
+        return f.name
+
+    def test_parse_all_formats(self):
+        from .mcq_importer import import_mcq, parse_mcq
+        parsed = parse_mcq(self.make_doc())
+        self.assertEqual(parsed.errors, [])
+        got = [(q["text"], q["options"][q["correct"][0]]) for q in parsed.items]
+        self.assertEqual(got, [("Биринчи савол?", "икки"), ("Иккинчи савол (рўйхат)?", "йўқ"),
+                               ("Учинчи савол?", "4,6%"), ("Ҳисобланг: 10 + 5", "15 млн сўм"),
+                               ("Амортизация — пул жамғариш.", "Нотўғри")])
+        r = import_mcq(parsed, bank_name="ACCA", source="t", prefix="ACCA")
+        self.assertEqual((r["created"], r["bank"].kind), (5, Kind.TEST))
+        r = import_mcq(parsed, bank_name="ACCA", source="t", prefix="ACCA")   # такрор — дубликатсиз
+        self.assertEqual((r["created"], r["updated"], r["bank"].questions.count()), (0, 5, 5))
+
+    def test_unmarked_question_is_an_error(self):
+        import tempfile
+
+        import docx
+        from .mcq_importer import parse_mcq
+        d = docx.Document()
+        for t in ("1. Савол?", "А) бир", "Б) икки"):
+            d.add_paragraph(t)
+        f = tempfile.NamedTemporaryFile(suffix=".docx", delete=False); d.save(f.name)
+        self.assertIn("тўғри жавоб 0 та", parse_mcq(f.name).errors[0])
+
+
+class ProfessionalTestScoringTests(Base):
+    def test_hundred_points_with_professional_block(self):
+        """Тестлар 2 баллдан, ёзма топшириқ 6 баллдан: якуний балл 100 лик."""
+        self.client.force_login(self.author)
+        self.client.post(reverse("block_create", args=[self.test.pk]),
+                         {"title": "ACCA", "kind": "test", "duration_minutes": 20, "order": 3})
+        acca = self.test.blocks.get(kind=Kind.TEST)
+        self.client.post(reverse("question_create", args=[acca.pk]), {
+            "text": "<p>ACCA?</p>", "qtype": "choice", "order": 1, "options_text": "a\nb", "correct_number": 1})
+        # 3 та тест (2 мантиқий + 1 касбий) × 2 = 6 балл → вазн 6 ва 2 × 47 = 94 ёзма
+        Test.objects.filter(pk=self.test.pk).update(weight_logic=4, weight_test=2, weight_practical=94,
+                                                    weight_interview=0, weight_defense=0)
+        self.client.logout()
+        self.login_candidate()
+        attempt = Attempt.objects.get()
+        q = acca.questions.get()
+        attempt.answers.filter(question=q).update(selected_option=q.correct_option)  # блоклар кетма-кет — тўғридан
+        attempt.finish()
+        s = grading.summary(attempt)
+        self.assertEqual((s["test"]["score"], s["test"]["max"]), (1, 1))
+        self.assertEqual(s["logic"]["score"], 0)
+
+
 class SessionTests(Base):
     def test_candidate_login_drops_staff_session(self):
         self.client.force_login(self.admin)

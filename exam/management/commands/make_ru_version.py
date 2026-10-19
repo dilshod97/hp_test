@@ -16,6 +16,9 @@ CODE_MAP = {"МА": "ФА", "ТА": "СА"}
 TEXT_RU = {
     "Мантиқий фикрлаш тести": "Тест логического мышления",
     "Ёзма амалий топшириқлар": "Письменные практические задания",
+    "Иқтисод, молия, статистика": "Экономика, финансы, статистика",
+    "ACCA бўйича тест": "Тест по ACCA",
+    "Ҳар бир саволда битта тўғри жавобни белгиланг.": "В каждом вопросе отметьте один правильный ответ.",
     "Тест икки қисмдан иборат: мантиқий тест ва ёзма амалий топшириқлар. "
     "Интернет, сунъий интеллект, калькулятор ва ташқи ёрдамдан фойдаланиш мумкин эмас. "
     "Қоралама қоғозга рухсат берилади.":
@@ -74,7 +77,7 @@ class Command(BaseCommand):
             title=title, description=TEXT_RU.get(uz.description, uz.description), language=Language.RU,
             is_active=False, shuffle_questions=uz.shuffle_questions, shuffle_options=uz.shuffle_options,
             free_navigation=uz.free_navigation, require_photo=uz.require_photo, review_mode=uz.review_mode,
-            weight_practical=uz.weight_practical, weight_logic=uz.weight_logic,
+            weight_practical=uz.weight_practical, weight_logic=uz.weight_logic, weight_test=uz.weight_test,
             weight_interview=uz.weight_interview, weight_defense=uz.weight_defense, created_by=uz.created_by,
         )
         ru.checkers.set(uz.checkers.all())

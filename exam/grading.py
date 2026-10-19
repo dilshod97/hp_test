@@ -219,10 +219,11 @@ def summary(attempt):
     test = attempt.test
     parts = {
         "logic": _part(attempt, Kind.LOGIC),
+        "test": _part(attempt, Kind.TEST),
         "practical": _part(attempt, Kind.PRACTICAL),
         "interview": interview_part(attempt),
     }
-    weights = {"logic": test.weight_logic, "practical": test.weight_practical, "interview": test.weight_interview}
+    weights = {"logic": test.weight_logic, "test": test.weight_test, "practical": test.weight_practical, "interview": test.weight_interview}
     final = Decimal(0)
     complete = True
     for key, part in parts.items():

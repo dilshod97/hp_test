@@ -145,7 +145,7 @@ def test_copy(request, pk):
             title=f"{src.title} (нусха)", description=src.description, language=src.language, is_active=False,
             shuffle_questions=src.shuffle_questions, shuffle_options=src.shuffle_options,
             review_mode=src.review_mode, free_navigation=src.free_navigation, require_photo=src.require_photo, weight_practical=src.weight_practical, weight_logic=src.weight_logic,
-            weight_interview=src.weight_interview, weight_defense=src.weight_defense, created_by=request.user,
+            weight_test=src.weight_test, weight_interview=src.weight_interview, weight_defense=src.weight_defense, created_by=request.user,
         )
         test.checkers.set(src.checkers.all())
         test.interview_questions.set(src.interview_questions.all())
@@ -187,6 +187,10 @@ BLOCK_PRESETS = {
     "logic": {
         "title": "Мантиқий фикрлаш тести", "kind": Kind.LOGIC, "duration_minutes": 40,
         "description": "Ҳар бир тестда битта жавобни белгиланг. Фақат шартдаги маълумотларга таянинг.",
+    },
+    "test": {
+        "title": "Касбий тест", "kind": Kind.TEST, "duration_minutes": 20,
+        "description": "Ҳар бир саволда битта тўғри жавобни белгиланг.",
     },
     "practical": {
         "title": "Ёзма амалий топшириқлар", "kind": Kind.PRACTICAL, "duration_minutes": 180,
@@ -420,7 +424,7 @@ def bank_list(request):
     # Турлари бўйича гуруҳлаб: амалий → мантиқий → суҳбат → бошқа; ичида номи бўйича
     kind_rank = Case(
         When(kind=Kind.PRACTICAL, then=Value(0)), When(kind=Kind.LOGIC, then=Value(1)),
-        When(kind=Kind.INTERVIEW, then=Value(2)), default=Value(3), output_field=IntegerField(),
+        When(kind=Kind.TEST, then=Value(2)), When(kind=Kind.INTERVIEW, then=Value(3)), default=Value(4), output_field=IntegerField(),
     )
     banks = (QuestionBank.objects.annotate(n=Count("questions"), rank=kind_rank)
              .order_by("rank", "name", "source"))
@@ -1012,7 +1016,7 @@ def results_export(request):
     ws.title = "Натижалар"
     headers = [
         "Код", "Фамилия", "Исм", "Отасининг исми", "Туғилган сана", "Тест", "Ҳолат",
-        "Расм", "Мантиқий тест", "Мантиқий макс.", "Талқин", "Ёзма амалий", "Амалий макс.",
+        "Расм", "Мантиқий тест", "Мантиқий макс.", "Талқин", "Касбий тест", "Касбий макс.", "Ёзма амалий", "Амалий макс.",
         "Суҳбат", "Суҳбат макс.", "Ҳимоя", "Якуний (100)", "Учинчи текширув", "Экспертлар",
         "Бошлаган", "Топширган",
     ]
@@ -1024,11 +1028,13 @@ def results_export(request):
     for a in _results_queryset(request):
         s = grading.summary(a)
         logic, practical, interview = s["logic"] or {}, s["practical"] or {}, s["interview"] or {}
+        prof = s["test"] or {}
         ws.append([
             a.code, a.candidate.last_name, a.candidate.first_name, a.candidate.middle_name,
             a.candidate.birth_date or a.candidate.birth_year, a.test.title, a.get_status_display(),
             a.get_photo_status_display() if a.photo_status else ("Олинмаган" if a.test.require_photo else "—"),
             _num(logic.get("score")), _num(logic.get("max")), s["logic_band"],
+            _num(prof.get("score")), _num(prof.get("max")),
             _num(practical.get("score")), _num(practical.get("max")),
             _num(interview.get("score")), _num(interview.get("max")),
             _num(s["defense"]), _num(s["final"]),
@@ -1037,7 +1043,7 @@ def results_export(request):
             a.started_at.astimezone(tz).replace(tzinfo=None),
             a.finished_at.astimezone(tz).replace(tzinfo=None) if a.finished_at else None,
         ])
-    widths = [10, 16, 14, 18, 14, 30, 13, 16, 10, 10, 20, 10, 10, 9, 9, 9, 11, 28, 30, 18, 18]
+    widths = [10, 16, 14, 18, 14, 30, 13, 16, 10, 10, 20, 10, 10, 10, 10, 9, 9, 9, 11, 28, 30, 18, 18]
     for i, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
