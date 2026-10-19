@@ -13,6 +13,7 @@ urlpatterns = [
 
     # Nomzod (Safe Exam Browser start URL: /exam/)
     path("exam/", c.candidate_login, name="exam_login"),
+    path("exam/language/", c.choose_language, name="exam_lang"),
     path("exam/photo/", c.photo, name="exam_photo"),
     path("exam/photo/save/", c.photo_save, name="exam_photo_save"),
     path("exam/take/", c.take, name="exam_take"),

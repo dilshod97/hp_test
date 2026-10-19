@@ -26,12 +26,23 @@ from .models import Block, Kind, Question, QuestionBank, Test
 
 UP = "A-ZА-ЯЎҚҒҲЁ"
 TASK_RE = re.compile(rf"^([{UP}]{{1,4}})\s+(\d{{1,3}})\s+(.+)$")
-CRITERION_RE = re.compile(r"^(\d{1,2})\.\s+(.*?)\s+(\d+)\s+балл\.?$")
+CRITERION_RE = re.compile(r"^(\d{1,2})\.\s+(.*?)\s+(\d+)\s+балл(?:а|ов)?\.?$")
 QUESTION_RE = re.compile(r"^(\d{1,3})\.\s+(.*)$")
 OPTION_START_RE = re.compile(r"^([А-ЕA-E])\)\s*")
 OPTION_SPLIT_RE = re.compile(r"(?:^|\s{2,}|\t)([А-ЕA-E])\)\s*")
 SET_RE = re.compile(r"^(\d{1,2})\s*[- ]?\s*тўплам$", re.I)
 KEY_RE = re.compile(r"^(\d{1,2})\s*[- ]?\s*тўплам калити$", re.I)
+SET_RU_RE = re.compile(r"^комплект\s*(\d{1,2})$", re.I)
+KEY_RU_RE = re.compile(r"^ключ комплекта\s*(\d{1,2})$", re.I)
+LOGIC_SKIP = ("Номзод коди", "Жавоблар:", "Номзод учун", "Код кандидата", "Отмечайте один вариант", "Инструкция кандидат")
+
+# Ҳужжат тилига қараб бўлим ва савол номлари
+LABELS = {
+    "uz": {"logic_bank": "Мантиқий тест", "set": "{s}-тўплам", "item": "{s}-тўплам, {n}-тест",
+           "right": "Тўғри: {x}.", "near": "Яқин чалғитувчилар: {x}.", "interview": "Суҳбат — {x}"},
+    "ru": {"logic_bank": "Логический тест", "set": "комплект {s}", "item": "Комплект {s}, вопрос {n}",
+           "right": "Верно: {x}.", "near": "Близкие отвлекающие варианты: {x}.", "interview": "Собеседование — {x}"},
+}
 GROUP_RE = re.compile(rf"([{UP}]{{1,4}})\s*(\d+)\s*[–-]\s*(?:[{UP}]{{1,4}}\s*)?(\d+)\s*[—–-]\s*([^;.]+)")
 LATIN_TO_CYR = str.maketrans("ABCDE", "АБВГД")
 
@@ -66,6 +77,7 @@ class Section:
 @dataclass
 class Parsed:
     title: str = ""
+    lang: str = "uz"
     sections: list = field(default_factory=list)
     keys: dict = field(default_factory=dict)     # тўплам рақами -> {савол рақами: [тўғри, яқин, изоҳ]}
     logic_instruction: str = ""
@@ -125,15 +137,19 @@ def parse(fileobj):
 
         if style.startswith("Heading 1"):
             current, key_set = None, None
-            m = SET_RE.match(text)
+            m = SET_RE.match(text) or SET_RU_RE.match(text)
             low = text.lower()
+            if SET_RU_RE.match(text) or low.startswith("вопросы собеседования"):
+                out.lang = "ru"
             if m:
-                section = Section("logic", f"Мантиқий тест — {int(m.group(1))}-тўплам", set_no=int(m.group(1)))
+                n = int(m.group(1))
+                section = Section("logic", f"{LABELS[out.lang]['logic_bank']} — {LABELS[out.lang]['set'].format(s=n)}",
+                                  set_no=n)
                 out.sections.append(section)
                 mode = "section"
-            elif "калит" in low or low.startswith("тест жавоблари"):
+            elif "калит" in low or low.startswith("тест жавоблари") or low.startswith("ключи"):
                 section, mode = None, "keys"
-            elif low.startswith("суҳбат"):
+            elif low.startswith(("суҳбат", "вопросы собеседования")):
                 section = Section("interview", text)
                 out.sections.append(section)
                 mode = "section"
@@ -145,7 +161,7 @@ def parse(fileobj):
 
         if style.startswith("Heading 2"):
             if mode == "keys":
-                m = KEY_RE.match(text)
+                m = KEY_RE.match(text) or KEY_RU_RE.match(text)
                 key_set = int(m.group(1)) if m else None
                 continue
             m = TASK_RE.match(text)
@@ -155,13 +171,13 @@ def parse(fileobj):
                 section.items.append(current)
             continue
 
-        if text.startswith("Номзод учун кўрсатма") and not out.logic_instruction:
-            out.logic_instruction = text.split(" Жавоблар калити")[0]
+        if text.startswith(("Номзод учун кўрсатма", "Инструкция кандидату")) and not out.logic_instruction:
+            out.logic_instruction = re.split(r" (?:Жавоблар калити|Ключи находятся)", text)[0]
         if section is None:
             continue
 
         if section.kind == "logic":
-            if text.startswith(("Номзод коди", "Жавоблар:", "Номзод учун")):
+            if text.startswith(LOGIC_SKIP):
                 continue
             items = section.items
             if OPTION_START_RE.match(text) and items:
@@ -294,6 +310,7 @@ def import_parsed(parsed, source, user=None, create_tests=True):
     report = {"banks": [], "created": 0, "updated": 0, "tests": [], "skipped_tests": []}
     order_base = (QuestionBank.objects.exclude(source=source).order_by("-order").values_list("order", flat=True).first() or 0)
     by_code, logic_sets = {}, {}   # logic_sets: тўплам рақами -> [саволлар]
+    L = LABELS[parsed.lang]
     logic_bank = None              # барча мантиқий тўпламлар битта бўлимда
 
     def note(bank, n):
@@ -304,18 +321,18 @@ def import_parsed(parsed, source, user=None, create_tests=True):
         intro = " ".join(s.intro)
         if s.kind == "logic":
             if logic_bank is None:
-                logic_bank, _ = _bank(source, "Мантиқий тест", Kind.LOGIC, parsed.logic_instruction, order)
+                logic_bank, _ = _bank(source, L["logic_bank"], Kind.LOGIC, parsed.logic_instruction, order)
             bank = logic_bank
             keys = parsed.keys[s.set_no]
             for q in s.items:
                 key = keys[q["number"]] + ["", "", ""]
-                parts = [f"Тўғри: {key[0]}."]
+                parts = [L["right"].format(x=key[0])]
                 if key[1]:
-                    parts.append(f"Яқин чалғитувчилар: {key[1]}.")
+                    parts.append(L["near"].format(x=key[1]))
                 if key[2]:
                     parts.append(key[2])
                 question, created = _upsert(
-                    bank, f"Т{s.set_no}-{q['number']:02d}", title=f"{s.set_no}-тўплам, {q['number']}-тест",
+                    bank, f"Т{s.set_no}-{q['number']:02d}", title=L["item"].format(s=s.set_no, n=q["number"]),
                     text=f"<p>{escape(q['text'])}</p>", qtype=Question.Type.CHOICE, max_score=1,
                     order=s.set_no * 100 + q["number"],
                     explanation=" ".join(parts),
@@ -333,7 +350,7 @@ def import_parsed(parsed, source, user=None, create_tests=True):
         if s.kind == "interview":
             groups = _interview_groups(s) or [("", None)]
             for g, (label, numbers) in enumerate(groups):
-                name = f"Суҳбат — {label}" if label else s.name
+                name = L["interview"].format(x=label) if label else s.name
                 bank, _ = _bank(source, name, Kind.INTERVIEW, intro, order * 10 + g)
                 items = [x for x in s.items if numbers is None or int(x["code"].split()[1]) in numbers]
                 for i, item in enumerate(items, start=1):

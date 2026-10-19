@@ -42,11 +42,12 @@ const EDITOR_PRESETS = {
 
 function initEditor(selector, extra, mode) {
   const preset = EDITOR_PRESETS[mode || 'candidate'];
+  const ru = window.EXAM && window.EXAM.lang === 'ru';   // рус тилидаги тест
   return tinymce.init(Object.assign({
     selector: selector,
     license_key: 'gpl',
-    language: 'uz_cyrl',
-    language_url: '/static/exam/tinymce-uz-cyrl.js',
+    language: ru ? 'ru' : 'uz_cyrl',
+    language_url: ru ? undefined : '/static/exam/tinymce-uz-cyrl.js',
     menubar: false,
     branding: false,
     promotion: false,
@@ -63,5 +64,6 @@ function initEditor(selector, extra, mode) {
                    'table{border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:6px 10px}' +
                    'pre{background:#f1f5f9;padding:10px 12px;border-radius:6px;font-size:14px;white-space:pre-wrap}' +
                    'img{max-width:100%;height:auto}blockquote{border-left:3px solid #cbd5e1;margin:0;padding-left:12px;color:#475569}',
-  }, preset, extra || {}));
+  }, preset, ru ? {block_formats: 'Обычный текст=p; Заголовок=h3; Подзаголовок=h4; Псевдокод / расчет=pre'} : {},
+  extra || {}));
 }

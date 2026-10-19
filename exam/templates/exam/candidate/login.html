@@ -3,15 +3,16 @@
 {% block content %}
 <div class="auth-wrap">
   <div class="auth-card">
+    <div class="lang-switch"><a href="?lang=uz"{% if lang != 'ru' %} class="on"{% endif %}>Ўзбекча</a><a href="?lang=ru"{% if lang == 'ru' %} class="on"{% endif %}>Русский</a></div>
     <div class="logo">{% icon "cap" "lg" %}</div>
-    <h1>Тестга кириш</h1>
-    <p class="lead">Сизга берилган варақчадаги <b>логин</b> ва <b>паролни</b> киритинг.</p>
+    <h1>{% tr "Тестга кириш" %}</h1>
+    <p class="lead">{% tr "Сизга берилган варақчадаги <b>логин</b> ва <b>паролни</b> киритинг." %}</p>
     {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
     <form method="post" autocomplete="off">{% csrf_token %}
       {% include "exam/_fields.html" %}
-      <button class="btn lg block">Тестни бошлаш {% icon "right" %}</button>
+      <button class="btn lg block">{% tr "Тестни бошлаш" %} {% icon "right" %}</button>
     </form>
-    <div class="auth-foot">Варақча йўқ ёки кира олмасангиз, назоратчига мурожаат қилинг.</div>
+    <div class="auth-foot">{% tr "Варақча йўқ ёки кира олмасангиз, назоратчига мурожаат қилинг." %}</div>
   </div>
 </div>
 {% endblock %}

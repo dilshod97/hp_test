@@ -4,7 +4,7 @@ from decimal import Decimal
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 
-from .models import Block, Candidate, Kind, Question, QuestionBank, Test, User
+from .models import Block, Candidate, Kind, Language, Question, QuestionBank, Test, User
 from .utils import clean_html, is_empty_html
 
 
@@ -61,7 +61,8 @@ class CandidateForm(forms.Form):
     middle_name = forms.CharField(label="Отасининг исми", max_length=100, required=False)
     birth = forms.CharField(label="Туғилган йили", max_length=10,
                             widget=forms.TextInput(attrs={"placeholder": "1995 ёки 12.04.1995"}))
-    test = forms.ModelChoiceField(label="Тест", queryset=Test.objects.all(), empty_label="— тестни танланг —")
+    test = forms.ModelChoiceField(label="Тест", queryset=Test.objects.filter(uz_original__isnull=True),
+                                  empty_label="— тестни танланг —")
 
     def clean_birth(self):
         return check_birth(*parse_birth(self.cleaned_data["birth"]))
@@ -72,7 +73,8 @@ class CandidateImportForm(forms.Form):
         label="Excel файл (.xlsx)",
         help_text="Устунлар: Фамилия, Исм, Отасининг исми, Туғилган йили (1995) ёки санаси (12.04.1995). Биринчи қатор — сарлавҳа.",
     )
-    test = forms.ModelChoiceField(label="Тест", queryset=Test.objects.all(), empty_label="— тестни танланг —")
+    test = forms.ModelChoiceField(label="Тест", queryset=Test.objects.filter(uz_original__isnull=True),
+                                  empty_label="— тестни танланг —")
 
     def clean_file(self):
         from openpyxl import load_workbook
@@ -121,7 +123,7 @@ class TestForm(forms.ModelForm):
     class Meta:
         model = Test
         fields = [
-            "title", "description", "is_active", "free_navigation", "require_photo", "shuffle_questions", "shuffle_options", "review_mode",
+            "title", "description", "language", "ru_version", "is_active", "free_navigation", "require_photo", "shuffle_questions", "shuffle_options", "review_mode",
             "interview_questions", "weight_practical", "weight_logic", "weight_interview", "weight_defense",
         ]
         widgets = {
@@ -134,16 +136,31 @@ class TestForm(forms.ModelForm):
         self.fields["interview_questions"].queryset = (
             Question.objects.filter(bank__kind=Kind.INTERVIEW).select_related("bank").order_by("bank__order", "order")
         )
+        self.fields["language"].required = False  # кўрсатилмаса — ўзбекча
+        ru = Test.objects.filter(language=Language.RU)
+        if self.instance.pk:
+            ru = ru.exclude(pk=self.instance.pk)
+        self.fields["ru_version"].queryset = ru
+        self.fields["ru_version"].empty_label = "— йўқ (номзод тил танламайди) —"
         if self.instance.pk and self.instance.is_locked:
             # Номзодлар бошлаган тестда вақт тартибини ўзгартириб бўлмайди
             self.fields["free_navigation"].disabled = True
             self.fields["free_navigation"].help_text = "Номзодлар тестни бошлаган — бу созламани ўзгартириб бўлмайди."
+
+    def clean_language(self):
+        return self.cleaned_data.get("language") or Language.UZ
 
     def clean(self):
         data = super().clean()
         total = sum(data.get(f) or 0 for f in ["weight_practical", "weight_logic", "weight_interview", "weight_defense"])
         if total != 100:
             self.add_error(None, f"Вазнлар йиғиндиси 100 бўлиши керак (ҳозир {total:g}).")
+        ru = data.get("ru_version")
+        if ru is not None:
+            if data.get("language") != Language.UZ:
+                self.add_error("ru_version", "Рус варианти фақат ўзбек тилидаги тестга бириктирилади.")
+            elif Test.objects.filter(ru_version=ru).exclude(pk=self.instance.pk).exists():
+                self.add_error("ru_version", "Бу рус тести бошқа тестга бириктирилган.")
         if (data.get("weight_interview") or 0) > 0 and not data.get("interview_questions"):
             self.add_error("weight_interview", "Суҳбат саволлари танланмаган. Суҳбат ўтказилмаса, вазнни 0 қилинг "
                                                "ва 100 ни бошқа қисмларга тақсимланг.")

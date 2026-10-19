@@ -93,6 +93,11 @@ class QuestionBank(models.Model):
                     Question.objects.filter(pk=q.pk).update(order=i)
 
 
+class Language(models.TextChoices):
+    UZ = "uz", "Ўзбекча"
+    RU = "ru", "Русча"
+
+
 class Test(models.Model):
     class ReviewMode(models.TextChoices):
         SINGLE = "single", "Битта эксперт"
@@ -100,6 +105,14 @@ class Test(models.Model):
 
     title = models.CharField("Номи", max_length=255)
     description = models.TextField("Номзод учун кўрсатма", blank=True)
+    language = models.CharField("Тест тили", max_length=2, choices=Language.choices, default=Language.UZ,
+                                help_text="Номзод саҳифалари (тугмалар, кўрсатмалар) шу тилда чиқади")
+    ru_version = models.OneToOneField(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="uz_original",
+        verbose_name="Рус тилидаги варианти",
+        help_text="Танланса, номзод киргач тилни ўзи танлайди: ўзбекча — шу тест, русча — танланган тест. "
+                  "HR номзодни фақат шу (ўзбекча) тестга қўшади.",
+    )
     is_active = models.BooleanField("Фаол", default=False, help_text="Фақат фаол тестни номзод бошлай олади")
     shuffle_questions = models.BooleanField("Саволларни аралаштириш", default=True)
     shuffle_options = models.BooleanField(
@@ -145,6 +158,15 @@ class Test(models.Model):
 
     def __str__(self):
         return self.title
+
+    def version_ids(self):
+        """Шу тест ва унинг рус тилидаги варианти — номзоднинг битта уриниши шулардан бирида бўлади."""
+        return [self.pk] + ([self.ru_version_id] if self.ru_version_id else [])
+
+    def language_choice(self):
+        """Номзодга тил танлаш таклиф қилинадими (рус варианти тайёр ва фаол)."""
+        ru = self.ru_version
+        return ru is not None and ru.is_active and ru.blocks.exists()
 
     @property
     def is_locked(self):
@@ -432,7 +454,7 @@ class Assignment(models.Model):
 
     @property
     def attempt(self):
-        return Attempt.objects.filter(candidate_id=self.candidate_id, test_id=self.test_id).first()
+        return Attempt.objects.filter(candidate_id=self.candidate_id, test_id__in=self.test.version_ids()).first()
 
 
 def generate_attempt_code():

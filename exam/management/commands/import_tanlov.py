@@ -39,4 +39,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(
                 f"Тайёр: {report['created']} та янги, {report['updated']} та янгиланган савол."))
             for t in report["tests"]:
-                self.stdout.write(self.style.SUCCESS(f"Намуна тест яратилди (нофаол): {t}"))
+                self.stdout.write(self.style.SUCCESS(f"Тест яратилди (нофаол): {t}"))

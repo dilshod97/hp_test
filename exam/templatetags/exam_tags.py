@@ -62,3 +62,17 @@ def icon(name, cls=""):
     return mark_safe(
         f'<svg class="ic {cls}" viewBox="0 0 24 24" aria-hidden="true">{ICONS.get(name, "")}</svg>'
     )
+
+
+@register.simple_tag(takes_context=True)
+def tr(context, text, **kwargs):
+    """Номзод саҳифалари учун таржима: {% tr "Ўзбекча матн" n=5 %}. Тил — контекстдаги `lang`."""
+    from django.utils.html import conditional_escape
+    from django.utils.safestring import mark_safe
+
+    from exam.i18n import tr as translate
+
+    s = translate(text, context.get("lang"))
+    if kwargs:
+        s = s.format(**{k: conditional_escape(v) for k, v in kwargs.items()})
+    return mark_safe(s)  # матн — шаблоннинг ўзидаги литерал, ўзгарувчилар эскейп қилинган

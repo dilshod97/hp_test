@@ -4,11 +4,11 @@
 <div class="auth-wrap">
   <div class="auth-card" style="text-align:center">
     <div class="done-icon">{% icon "ok" %}</div>
-    <h1>Тест якунланди</h1>
-    <p class="lead">Жавобларингиз қабул қилинди ва сақланди. Натижалар ҳақида сизга кейинроқ хабар берилади.</p>
-    <div class="alert info" style="text-align:left">Қоралама қоғозларни назоратчига топширинг.</div>
-    <p class="muted small" style="margin:18px 0 10px"><span id="left">{{ seconds }}</span> сониядан кейин кириш саҳифаси очилади.</p>
-    <a class="btn secondary block" href="{% url 'exam_login' %}">Кириш саҳифасига қайтиш</a>
+    <h1>{% tr "Тест якунланди" %}</h1>
+    <p class="lead">{% tr "Жавобларингиз қабул қилинди ва сақланди. Натижалар ҳақида сизга кейинроқ хабар берилади." %}</p>
+    <div class="alert info" style="text-align:left">{% tr "Қоралама қоғозларни назоратчига топширинг." %}</div>
+    <p class="muted small" style="margin:18px 0 10px">{% tr '<span id="left">{seconds}</span> сониядан кейин кириш саҳифаси очилади.' seconds=seconds %}</p>
+    <a class="btn secondary block" href="{% url 'exam_login' %}">{% tr "Кириш саҳифасига қайтиш" %}</a>
   </div>
 </div>
 {% endblock %}

@@ -8,6 +8,9 @@
     <h1>{{ test.title }}</h1>
     <div class="meta">
       {% if test.is_active %}<span class="badge on">Фаол</span>{% else %}<span class="badge off">Нофаол</span>{% endif %}
+      <span>Тил: <b>{{ test.get_language_display }}</b></span>
+      {% if test.ru_version %}<span>Рус варианти: <a href="{% url 'test_detail' test.ru_version.pk %}"><b>{{ test.ru_version.title }}</b></a>{% if not test.ru_version.is_active %} <span class="badge off">нофаол</span>{% endif %}</span>{% endif %}
+      {% if test.uz_original %}<span>Асосий тест: <a href="{% url 'test_detail' test.uz_original.pk %}"><b>{{ test.uz_original.title }}</b></a></span>{% endif %}
       <span>{% icon "clock" %} <b>{{ test.total_minutes }}</b> дақиқа</span>
       <span>Макс. балл: <b>{{ test.max_score|num }}</b></span>
       <span>Номзодлар: {% if user.is_superadmin %}<a href="{% url 'candidate_list' %}?test={{ test.pk }}"><b>{{ test.assignments.count }}</b></a>{% else %}<b>{{ test.assignments.count }}</b>{% endif %}</span>

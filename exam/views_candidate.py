@@ -11,10 +11,26 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import CandidateLoginForm
-from .models import Answer, Assignment, Attempt, BlockAttempt
+from .i18n import js_strings, tr
+from .models import Answer, Assignment, Attempt, BlockAttempt, Language
 from .utils import clean_answer, client_ip, create_attempt, is_empty_html
 
 SESSION_KEY = "attempt_id"
+LANG_KEY = "lang"                     # кириш саҳифасининг тили (номзод ўзи алмаштиради)
+PENDING_KEY = "pending_assignment"    # логин тўғри, номзод тилни танлаши кутилмоқда
+
+
+def _lang(request, attempt=None):
+    """Тест бошлангач — тестнинг тили, ундан олдин — кириш саҳифасида танланган тил."""
+    if attempt is not None:
+        return attempt.test.language
+    return request.session.get(LANG_KEY) or Language.UZ
+
+
+def _start_session(request, attempt):
+    request.session.flush()  # brauzerda xodim sessiyasi qolmasin
+    request.session[SESSION_KEY] = attempt.pk
+    request.session[LANG_KEY] = attempt.test.language
 
 
 def _current_attempt(request):
@@ -38,17 +54,24 @@ def candidate_login(request):
     attempt = _current_attempt(request)
     if attempt and attempt.status == Attempt.Status.IN_PROGRESS:
         return redirect("exam_take")
+    if request.GET.get("lang") in Language.values:
+        request.session[LANG_KEY] = request.GET["lang"]
+        return redirect("exam_login")
+    lang = _lang(request)
 
     form = CandidateLoginForm(request.POST or None)
+    for name in ("login", "password"):
+        form.fields[name].label = tr(form.fields[name].label, lang)
+        form.fields[name].error_messages["required"] = tr("Бу майдонни тўлдиринг.", lang)
     if request.method == "POST" and form.is_valid():
         ip_key = f"exam-login:{client_ip(request)}"
         now = timezone.now()
         assignment = (Assignment.objects.select_related("candidate", "test")
                       .filter(login=form.cleaned_data["login"]).first())
         if cache.get(ip_key, 0) >= IP_LIMIT:
-            form.add_error(None, "Жуда кўп уриниш. 10 дақиқадан кейин қайтадан уриниб кўринг ёки назоратчига мурожаат қилинг.")
+            form.add_error(None, tr("Жуда кўп уриниш. 10 дақиқадан кейин қайтадан уриниб кўринг ёки назоратчига мурожаат қилинг.", lang))
         elif assignment and assignment.locked_until and assignment.locked_until > now:
-            form.add_error(None, "Бу логин учун кўп марта нотўғри парол киритилди. Назоратчига мурожаат қилинг.")
+            form.add_error(None, tr("Бу логин учун кўп марта нотўғри парол киритилди. Назоратчига мурожаат қилинг.", lang))
         elif not assignment or not hmac.compare_digest(assignment.password, form.cleaned_data["password"]):
             cache.set(ip_key, cache.get(ip_key, 0) + 1, LOCK_MINUTES * 60)
             if assignment:
@@ -56,30 +79,69 @@ def candidate_login(request):
                 if assignment.failed_logins >= MAX_FAILED:
                     assignment.locked_until = now + timedelta(minutes=LOCK_MINUTES)
                 assignment.save(update_fields=["failed_logins", "locked_until"])
-            form.add_error(None, "Логин ёки парол нотўғри. Варақчадаги рақамларни текшириб, қайта киритинг.")
+            form.add_error(None, tr("Логин ёки парол нотўғри. Варақчадаги рақамларни текшириб, қайта киритинг.", lang))
         elif not assignment.test.is_active or not assignment.test.blocks.exists():
-            form.add_error(None, "Тестингиз ҳали очилмаган. Назоратчига мурожаат қилинг.")
+            form.add_error(None, tr("Тестингиз ҳали очилмаган. Назоратчига мурожаат қилинг.", lang))
         else:
-            existing = Attempt.objects.filter(candidate=assignment.candidate, test=assignment.test).first()
+            existing = assignment.attempt
             if existing and existing.status != Attempt.Status.IN_PROGRESS:
-                form.add_error(None, "Сиз бу тестни топширгансиз. Қайта топшириш фақат суперадмин рухсати билан мумкин — "
-                                     "назоратчига мурожаат қилинг.")
+                form.add_error(None, tr("Сиз бу тестни топширгансиз. Қайта топшириш фақат суперадмин рухсати билан "
+                                        "мумкин — назоратчига мурожаат қилинг.", lang))
             else:
                 if assignment.failed_logins or assignment.locked_until:
                     assignment.failed_logins, assignment.locked_until = 0, None
                     assignment.save(update_fields=["failed_logins", "locked_until"])
+                if existing is None and assignment.test.language_choice():
+                    request.session.flush()
+                    request.session[LANG_KEY] = lang
+                    request.session[PENDING_KEY] = assignment.pk
+                    return redirect("exam_lang")
                 if existing is None:
-                    try:
-                        existing = create_attempt(assignment.candidate, assignment.test, ip=client_ip(request))
-                    except IntegrityError:
-                        existing = Attempt.objects.get(candidate=assignment.candidate, test=assignment.test)
+                    existing = _create(request, assignment, assignment.test)
                 else:
-                    messages.info(request, "Тестни давом эттиряпсиз. Аввалги жавобларингиз сақланган.")
-                request.session.flush()  # brauzerda xodim sessiyasi qolmasin
-                request.session[SESSION_KEY] = existing.pk
+                    messages.info(request, tr("Тестни давом эттиряпсиз. Аввалги жавобларингиз сақланган.",
+                                              existing.test.language))
+                _start_session(request, existing)
                 return redirect("exam_take")
 
-    return render(request, "exam/candidate/login.html", {"form": form})
+    return render(request, "exam/candidate/login.html", {"form": form, "lang": lang})
+
+
+def _create(request, assignment, test):
+    try:
+        with transaction.atomic():
+            return create_attempt(assignment.candidate, test, ip=client_ip(request))
+    except IntegrityError:
+        return assignment.attempt
+
+
+def choose_language(request):
+    """Логин тўғри киритилгач, тестнинг рус варианти бўлса — номзод тилни танлайди."""
+    if _current_attempt(request) is not None:
+        return redirect("exam_take")
+    pk = request.session.get(PENDING_KEY)
+    assignment = (Assignment.objects.select_related("candidate", "test__ru_version").filter(pk=pk).first()
+                  if pk else None)
+    if assignment is None or not assignment.test.is_active or not assignment.test.language_choice():
+        request.session.pop(PENDING_KEY, None)
+        return redirect("exam_login")
+
+    if request.method == "POST" and request.POST.get("lang") in Language.values:
+        attempt = assignment.attempt  # иккинчи ойнада танлаб улгурган бўлиши мумкин
+        if attempt is None:
+            test = assignment.test.ru_version if request.POST["lang"] == Language.RU else assignment.test
+            attempt = _create(request, assignment, test)
+        if attempt.status != Attempt.Status.IN_PROGRESS:
+            request.session.pop(PENDING_KEY, None)
+            return redirect("exam_login")
+        _start_session(request, attempt)
+        return redirect("exam_take")
+
+    return render(request, "exam/candidate/language.html", {
+        "lang": _lang(request),
+        "choices": [(Language.UZ, "Ўзбекча", assignment.test.title),
+                    (Language.RU, "Русский", assignment.test.ru_version.title)],
+    })
 
 
 def take(request):
@@ -123,7 +185,10 @@ def take(request):
          "state": "now" if (b in shown) else ("done" if b.finished_at else "todo")}
         for b in all_blocks
     ]
+    lang = _lang(request, attempt)
     return render(request, "exam/candidate/take.html", {
+        "lang": lang,
+        "js_t": js_strings(lang),
         "attempt": attempt,
         "block_attempt": ba,
         "cur_block": ba.block,
@@ -212,7 +277,8 @@ def done(request):
     if attempt is None:
         return redirect("exam_login")
     request.session.flush()  # кейинги номзод тоза сессия билан киради
-    return render(request, "exam/candidate/done.html", {"attempt": attempt, "seconds": 15})
+    return render(request, "exam/candidate/done.html", {"attempt": attempt, "seconds": 15,
+                                                         "lang": _lang(request, attempt)})
 
 
 # ---------------------------------------------------------------- Шахсни тасдиқлаш учун расм
@@ -224,7 +290,7 @@ def photo(request):
     if attempt.status != Attempt.Status.IN_PROGRESS or attempt.photo_status or not attempt.test.require_photo:
         return redirect("exam_take")
     return render(request, "exam/candidate/photo.html", {
-        "attempt": attempt, "retention_days": settings.PHOTO_RETENTION_DAYS,
+        "attempt": attempt, "retention_days": settings.PHOTO_RETENTION_DAYS, "lang": _lang(request, attempt),
     })
 
 

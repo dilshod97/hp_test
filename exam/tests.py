@@ -399,6 +399,98 @@ class MergedTaskWarningTests(TestCase):
         self.assertIn("МА 32", out.warnings[0])
 
 
+class LanguageTests(Base):
+    """Номзод киргач тилни танлайди: ўзбекча — асосий тест, русча — унинг рус варианти."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.author)
+        self.client.post(reverse("test_copy", args=[self.test.pk]))
+        self.client.logout()
+        self.ru = Test.objects.exclude(pk=self.test.pk).get()
+        self.ru.title, self.ru.language, self.ru.is_active = "Аудитор (рус)", "ru", True
+        self.ru.save()
+        self.test.ru_version = self.ru
+        self.test.save()
+
+    def test_candidate_chooses_russian(self):
+        r = self.login_candidate()
+        self.assertRedirects(r, reverse("exam_lang"))
+        r = self.client.get(reverse("exam_lang"))
+        self.assertContains(r, "Русский")
+        self.assertContains(r, "Аудитор (рус)")
+        r = self.client.post(reverse("exam_lang"), {"lang": "ru"})
+        self.assertRedirects(r, reverse("exam_take"))
+        attempt = Attempt.objects.get()
+        self.assertEqual(attempt.test, self.ru)
+        self.assertEqual(self.assignment.attempt, attempt)
+        r = self.client.get(reverse("exam_take"))
+        self.assertContains(r, "Завершить блок")  # блоклар кетма-кет режимда
+        self.assertContains(r, 'lang: "ru"')
+        self.assertNotContains(r, "Блокни якунлаш")
+        # Ҳамма матнлар таржима қилинган: ўзбек ҳарфлари (ў, қ, ғ, ҳ) кўринадиган матнда қолмаган
+        import re
+        visible = re.sub(r"<script.*?</script>|<[^>]+>", " ", r.content.decode(), flags=re.S)
+        self.assertFalse(re.search(r"[ЎўҚқҒғҲҳ]", visible), re.findall(r".{30}[ЎўҚқҒғҲҳ].{30}", visible)[:3])
+        # Рўйхатда номзоднинг ҳолати асосий тест бўйича кўринади
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("candidate_list"))
+        self.assertContains(r, "Ечилмоқда")
+        self.assertNotContains(r, "Бошламаган")
+
+    def test_choose_uzbek_and_no_second_attempt(self):
+        self.login_candidate()
+        self.client.post(reverse("exam_lang"), {"lang": "uz"})
+        attempt = Attempt.objects.get()
+        self.assertEqual(attempt.test, self.test)
+        attempt.finish()
+        other = self.client_class()
+        r = self.login_candidate(client=other)
+        self.assertContains(r, "топширгансиз")
+        self.assertEqual(Attempt.objects.count(), 1)
+
+    def test_inactive_russian_version_skips_choice(self):
+        self.ru.is_active = False
+        self.ru.save()
+        r = self.login_candidate()
+        self.assertRedirects(r, reverse("exam_take"), fetch_redirect_response=False)
+        self.assertEqual(Attempt.objects.get().test, self.test)
+
+    def test_choice_page_requires_login(self):
+        r = self.client.post(reverse("exam_lang"), {"lang": "ru"})
+        self.assertRedirects(r, reverse("exam_login"))
+        self.assertFalse(Attempt.objects.exists())
+
+    def test_login_page_switches_language(self):
+        self.client.get(reverse("exam_login") + "?lang=ru")
+        r = self.client.get(reverse("exam_login"))
+        self.assertContains(r, "Вход в тест")
+        self.assertContains(r, "Пароль")
+
+    def test_hr_cannot_assign_russian_version(self):
+        self.client.force_login(self.admin)
+        self.client.post(reverse("candidate_add"), {
+            "last_name": "Petrov", "first_name": "Ivan", "middle_name": "", "birth": "1990", "test": self.ru.pk})
+        self.assertFalse(Assignment.objects.filter(test=self.ru).exists())
+
+    def test_russian_document_import(self):
+        path = os.path.expanduser("~/Downloads/Schetnaya_palata_materialy_otbora_ru_редакт.docx")
+        if not os.path.exists(path):
+            self.skipTest("Рус тилидаги ҳужжат топилмади")
+        from .importer import import_parsed, parse
+        parsed = parse(path)
+        self.assertEqual((parsed.lang, parsed.errors, parsed.warnings), ("ru", [], []))
+        import_parsed(parsed, source="ru.docx", user=self.admin)
+        banks = QuestionBank.objects.filter(source="ru.docx")
+        self.assertEqual(banks.get(kind=Kind.LOGIC).name, "Логический тест")
+        self.assertEqual(banks.get(kind=Kind.LOGIC).questions.filter(correct_option__isnull=False).count(), 100)
+        fa = banks.get(name__contains="финансового аудитора", kind=Kind.PRACTICAL)
+        self.assertEqual(fa.questions.count(), 48)
+        self.assertFalse(fa.questions.filter(code__in=["ФА 33", "ФА 34"]).exists())
+        self.assertEqual(fa.questions.get(code="ФА 43").criteria.count(), 4)
+        self.assertEqual(banks.filter(kind=Kind.INTERVIEW).count(), 3)
+
+
 class SessionTests(Base):
     def test_candidate_login_drops_staff_session(self):
         self.client.force_login(self.admin)

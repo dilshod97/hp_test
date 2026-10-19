@@ -142,7 +142,7 @@ def test_copy(request, pk):
     src = get_object_or_404(Test, pk=pk)
     with transaction.atomic():
         test = Test.objects.create(
-            title=f"{src.title} (нусха)", description=src.description, is_active=False,
+            title=f"{src.title} (нусха)", description=src.description, language=src.language, is_active=False,
             shuffle_questions=src.shuffle_questions, shuffle_options=src.shuffle_options,
             review_mode=src.review_mode, free_navigation=src.free_navigation, require_photo=src.require_photo, weight_practical=src.weight_practical, weight_logic=src.weight_logic,
             weight_interview=src.weight_interview, weight_defense=src.weight_defense, created_by=request.user,
@@ -667,6 +667,11 @@ def _register(last, first, middle, born, test):
     return Assignment.objects.get_or_create(candidate=candidate, test=test)
 
 
+def _main_test_ids():
+    """Рус варианти -> асосий (ўзбекча) тест: номзод рўйхати асосий тест бўйича юритилади."""
+    return dict(Test.objects.exclude(ru_version=None).values_list("ru_version_id", "pk"))
+
+
 @role_required("can_manage_candidates")
 def candidate_list(request):
     qs = Assignment.objects.select_related("candidate", "test").order_by("-created_at")
@@ -677,7 +682,8 @@ def candidate_list(request):
     if search:
         qs = qs.filter(Q(candidate__last_name__icontains=search) | Q(candidate__first_name__icontains=search)
                        | Q(login=search))
-    attempts = {(a.candidate_id, a.test_id): a for a in Attempt.objects.filter(
+    main = _main_test_ids()
+    attempts = {(a.candidate_id, main.get(a.test_id, a.test_id)): a for a in Attempt.objects.filter(
         candidate_id__in=qs.values("candidate_id"))}
     rows = [{"x": x, "attempt": attempts.get((x.candidate_id, x.test_id))} for x in qs]
     return render(request, "exam/staff/candidate_list.html", {
@@ -803,7 +809,9 @@ def candidate_print(request):
         qs = qs.filter(test_id=request.GET["test"])
     else:
         qs = qs.none()
-    done = set(Attempt.objects.exclude(status=Attempt.Status.IN_PROGRESS).values_list("candidate_id", "test_id"))
+    main = _main_test_ids()
+    done = {(c, main.get(t, t)) for c, t in
+            Attempt.objects.exclude(status=Attempt.Status.IN_PROGRESS).values_list("candidate_id", "test_id")}
     rows = list(qs)
     slips = [x for x in rows if (x.candidate_id, x.test_id) not in done]
     skipped = [x for x in rows if (x.candidate_id, x.test_id) in done]

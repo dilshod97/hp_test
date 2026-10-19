@@ -2,6 +2,7 @@
 // Вақт серверда ҳисобланади; бу ердаги таймер фақат кўрсатиш учун.
 (function () {
   const cfg = window.EXAM;
+  const _ = text => (cfg.t && cfg.t[text]) || text;   // рус тилидаги таржима (бўлса)
   const cards = Array.from(document.querySelectorAll('.q-card'));
   const mapButtons = Array.from(document.querySelectorAll('#qmap button'));
   const statusEl = document.getElementById('save-status');
@@ -24,9 +25,9 @@
   const ICON_OK = '<svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';
   function setStatus(kind) {
     statusEl.classList.remove('ok', 'error');
-    if (kind === 'saving') statusEl.innerHTML = 'Сақланмоқда…';
-    if (kind === 'ok') { statusEl.innerHTML = ICON_OK + ' Сақланди'; statusEl.classList.add('ok'); }
-    if (kind === 'error') { statusEl.innerHTML = '⚠ Сақланмади — қайта уринилмоқда'; statusEl.classList.add('error'); }
+    if (kind === 'saving') statusEl.innerHTML = _('Сақланмоқда…');
+    if (kind === 'ok') { statusEl.innerHTML = ICON_OK + ' ' + _('Сақланди'); statusEl.classList.add('ok'); }
+    if (kind === 'error') { statusEl.innerHTML = _('⚠ Сақланмади — қайта уринилмоқда'); statusEl.classList.add('error'); }
   }
 
   // ---------- Жавоб ҳолати ----------
@@ -48,10 +49,10 @@
       b.classList.toggle('flagged', flags.has(card.dataset.question));
       const fb = card.querySelector('[data-flag]');
       fb.classList.toggle('on', flags.has(card.dataset.question));
-      fb.querySelector('span').textContent = flags.has(card.dataset.question) ? 'Белгиланган' : 'Кейин қайтиш учун белгилаш';
+      fb.querySelector('span').textContent = flags.has(card.dataset.question) ? _('Белгиланган') : _('Кейин қайтиш учун белгилаш');
     });
     document.getElementById('progress-bar').style.width = (cards.length ? answered * 100 / cards.length : 0) + '%';
-    document.getElementById('progress-lbl').textContent = 'Жавоб берилди: ' + answered + ' / ' + cards.length;
+    document.getElementById('progress-lbl').textContent = _('Жавоб берилди:') + ' ' + answered + ' / ' + cards.length;
     return answered;
   }
 
@@ -172,8 +173,8 @@
       const back = document.createElement('div');
       back.className = 'modal-back';
       back.innerHTML = '<div class="modal" role="dialog"><h2></h2><div class="m-body"></div><div class="actions">' +
-        (okText ? '<button type="button" class="btn secondary" data-a="0">Қайтиш</button>' : '') +
-        '<button type="button" class="btn ' + (okClass || '') + '" data-a="1">' + (okText || 'Тушунарли') + '</button></div></div>';
+        (okText ? '<button type="button" class="btn secondary" data-a="0">' + _('Қайтиш') + '</button>' : '') +
+        '<button type="button" class="btn ' + (okClass || '') + '" data-a="1">' + (okText || _('Тушунарли')) + '</button></div></div>';
       back.querySelector('h2').textContent = title;
       back.querySelector('.m-body').innerHTML = html;
       document.body.appendChild(back);
@@ -189,20 +190,20 @@
     collectEditors();
     const answered = refreshMap();
     const left = cards.length - answered;
-    const what = cfg.isLast ? 'Тестни якунлайсизми?' : 'Блокни якунлаб, кейингисига ўтасизми?';
+    const what = cfg.isLast ? _('Тестни якунлайсизми?') : _('Блокни якунлаб, кейингисига ўтасизми?');
     let html = '<p>' + (cfg.isLast
-      ? 'Якунлагандан кейин жавобларни ўзгартириб бўлмайди.'
-      : 'Кейинги блокка ўтгач, бу блокка қайтиб бўлмайди.') + '</p>';
-    html += '<p>Жавоб берилган саволлар: <b>' + answered + ' / ' + cards.length + '</b></p>';
-    if (left > 0) html += '<div class="warn-box">⚠ ' + left + ' та саволга жавоб берилмаган. Улар 0 балл билан баҳоланади.</div>';
-    if (flags.size) html += '<div class="warn-box">⚑ ' + flags.size + ' та савол «кейин қайтиш учун» белгиланган.</div>';
-    if (!(await modal(what, html, cfg.isLast ? 'Ҳа, якунлаш' : 'Ҳа, кейинги блокка', 'success'))) return;
+      ? _('Якунлагандан кейин жавобларни ўзгартириб бўлмайди.')
+      : _('Кейинги блокка ўтгач, бу блокка қайтиб бўлмайди.')) + '</p>';
+    html += '<p>' + _('Жавоб берилган саволлар:') + ' <b>' + answered + ' / ' + cards.length + '</b></p>';
+    if (left > 0) html += '<div class="warn-box">⚠ ' + left + ' ' + _('та саволга жавоб берилмаган. Улар 0 балл билан баҳоланади.') + '</div>';
+    if (flags.size) html += '<div class="warn-box">⚑ ' + flags.size + ' ' + _('та савол «кейин қайтиш учун» белгиланган.') + '</div>';
+    if (!(await modal(what, html, cfg.isLast ? _('Ҳа, якунлаш') : _('Ҳа, кейинги блокка'), 'success'))) return;
     document.querySelectorAll('[data-finish]').forEach(b => b.disabled = true);
     setStatus('saving');
     await flushAll(10000);
     if (pending.size > 0) {
       document.querySelectorAll('[data-finish]').forEach(b => b.disabled = false);
-      await modal('Жавоблар сақланмади', '<p>Тармоқни текширинг ва қайтадан уриниб кўринг ёки назоратчини чақиринг.</p>');
+      await modal(_('Жавоблар сақланмади'), '<p>' + _('Тармоқни текширинг ва қайтадан уриниб кўринг ёки назоратчини чақиринг.') + '</p>');
       return;
     }
     leaving = true;
@@ -220,7 +221,7 @@
       collectEditors();
       document.querySelectorAll('input, button').forEach(el => el.disabled = true);
       editors.forEach(ed => ed && ed.mode.set('readonly'));
-      modal('Вақт тугади', '<p>Жавобларингиз сақланмоқда. Бир оздан кейин кейинги қисм очилади.</p>');
+      modal(_('Вақт тугади'), '<p>' + _('Жавобларингиз сақланмоқда. Бир оздан кейин кейинги қисм очилади.') + '</p>');
       flushAll(8000).then(() => goTo(cfg.takeUrl));
     }
   }

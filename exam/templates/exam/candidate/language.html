@@ -1,0 +1,16 @@
+{% extends "exam/candidate/base.html" %}
+{% load exam_tags %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="logo">{% icon "cap" "lg" %}</div>
+    <h1>Тест тилини танланг<br><span class="muted" style="font-size:.8em">Выберите язык теста</span></h1>
+    <form method="post" class="stack" style="margin-top:18px">{% csrf_token %}
+      {% for code, name, title in choices %}
+      <button class="btn lg block lang-btn" name="lang" value="{{ code }}"><b>{{ name }}</b><small>{{ title }}</small></button>
+      {% endfor %}
+    </form>
+    <div class="auth-foot">Тил танлангандан кейин уни ўзгартириб бўлмайди.<br>После выбора язык изменить нельзя.</div>
+  </div>
+</div>
+{% endblock %}

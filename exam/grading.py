@@ -63,9 +63,13 @@ def auto_grade(attempt):
 
 
 def pick_checker(test, exclude_ids):
-    """Testga biriktirilgan, hali bu ishni ko'rmagan va eng kam ochiq ishi bor tekshiruvchi."""
+    """Testga biriktirilgan, hali bu ishni ko'rmagan va eng kam ochiq ishi bor tekshiruvchi.
+    Рус вариантига алоҳида эксперт бириктирилмаган бўлса — асосий тестнинг экспертлари."""
+    checkers = test.checkers.all()
+    if not checkers.exists() and getattr(test, "uz_original", None) is not None:
+        checkers = test.uz_original.checkers.all()
     return (
-        test.checkers.filter(is_active=True).exclude(pk__in=exclude_ids)
+        checkers.filter(is_active=True).exclude(pk__in=exclude_ids)
         .annotate(load=Count("reviews", filter=Q(reviews__submitted_at__isnull=True)))
         .order_by("load", "?").first()
     )
