@@ -385,6 +385,20 @@ class ImportTests(TestCase):
         self.assertEqual(Test.objects.count(), 2)
 
 
+class MergedTaskWarningTests(TestCase):
+    def test_restarted_criteria_numbering_warns(self):
+        from .importer import Parsed, Section, _validate
+        crit = lambda n: [(f"мезон {i}", 2) for i in range(1, n + 1)]
+        merged = {"code": "МА 32", "title": "", "text": ["шарт"], "criteria": crit(5) * 2,
+                  "crit_nums": [str(i) for i in range(1, 6)] * 2}
+        normal = {"code": "МА 43", "title": "", "text": ["шарт"], "criteria": crit(4),
+                  "crit_nums": ["1", "2", "3", "4"]}
+        out = Parsed(sections=[Section("practical", "МА", items=[merged, normal])])
+        _validate(out)
+        self.assertEqual(len(out.warnings), 1)
+        self.assertIn("МА 32", out.warnings[0])
+
+
 class SessionTests(Base):
     def test_candidate_login_drops_staff_session(self):
         self.client.force_login(self.admin)

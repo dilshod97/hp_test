@@ -151,7 +151,7 @@ def parse(fileobj):
             m = TASK_RE.match(text)
             if section is not None and section.kind != "logic" and m:
                 current = {"code": f"{m.group(1)} {int(m.group(2)):02d}", "title": m.group(3).strip(),
-                           "text": [], "criteria": []}
+                           "text": [], "criteria": [], "crit_nums": []}
                 section.items.append(current)
             continue
 
@@ -183,6 +183,7 @@ def parse(fileobj):
         m = CRITERION_RE.match(text)
         if m:
             current["criteria"].append((m.group(2).strip(), int(m.group(3))))
+            current.setdefault("crit_nums", []).append(m.group(1))
         else:
             current["text"].append(text)
 
@@ -242,6 +243,11 @@ def _validate(out):
                     out.errors.append(f"{item['code']}: топшириқ шарти йўқ.")
                 if not item["criteria"]:
                     out.warnings.append(f"{item['code']}: баҳолаш мезонлари йўқ — эксперт умумий балл қўяди (макс. 10).")
+                nums = item.get("crit_nums", [])
+                if nums and nums.count(nums[0]) > 1:
+                    out.warnings.append(
+                        f"{item['code']}: мезонлар рақами қайта бошланган ({len(nums)} та мезон) — "
+                        "кейинги топшириқ сарлавҳаси (Heading 2) тушиб қолган бўлиши мумкин.")
 
 
 def _html(lines):
