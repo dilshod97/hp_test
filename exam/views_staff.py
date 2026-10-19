@@ -1105,3 +1105,23 @@ def bank_import(request):
         if parsed.errors:
             path.unlink(missing_ok=True)
     return render(request, "exam/staff/bank_import.html", ctx)
+
+
+# ---------------------------------------------------------------- HR учун натижалар (фақат код)
+
+@role_required("can_manage_candidates")
+def hr_results(request):
+    """Натижалар фақат аноним код билан: исм, туғилган йил, расм ва вақт кўрсатилмайди."""
+    Attempt.finish_abandoned()
+    qs = Attempt.objects.select_related("test").exclude(status=Attempt.Status.IN_PROGRESS)
+    test_id = request.GET.get("test")
+    code = request.GET.get("q", "").strip().upper()
+    if test_id:
+        qs = qs.filter(test_id=test_id)
+    if code:
+        qs = qs.filter(code__icontains=code)
+    # Код бўйича тартиб — вақт ёки рўйхат тартиби орқали номзодни топиб бўлмасин
+    rows = [{"a": a, "s": grading.summary(a)} for a in qs.order_by("code")]
+    return render(request, "exam/staff/hr_results.html", {
+        "rows": rows, "tests": Test.objects.all(), "params": request.GET,
+    })

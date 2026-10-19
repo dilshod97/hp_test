@@ -64,6 +64,7 @@ urlpatterns = [
     path("staff/candidates/<int:pk>/new-password/", s.assignment_reset_password, name="assignment_reset_password"),
     path("staff/candidates/print/", s.candidate_print, name="candidate_print"),
     path("staff/results/", s.results, name="results"),
+    path("staff/hr-results/", s.hr_results, name="hr_results"),
     path("staff/results/export/", s.results_export, name="results_export"),
     path("staff/results/<int:pk>/", s.result_detail, name="result_detail"),
     path("staff/results/<int:pk>/action/", s.result_action, name="result_action"),
