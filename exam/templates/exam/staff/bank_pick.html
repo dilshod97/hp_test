@@ -6,6 +6,12 @@
 <div class="page-head"><div><h1>Базадан савол қўшиш</h1>
   <div class="sub">«{{ cur_block }}» блокида ҳозир {{ in_block }} та савол бор.</div></div></div>
 
+<div class="alert info">
+  <b>Бу саҳифа саволларни блокка доимий қўшади — улар барча номзодларга бир хил тушади.</b><br>
+  Ҳар бир номзодга <b>ўзининг тасодифий</b> саволлари тушиши керак бўлса, бу ерда эмас, <a href="{% url 'block_edit' cur_block.pk %}"><b>блокни таҳрирлаб</b></a>
+  «Саволлар қаердан олинсин?» қисмида бўлим ва сонни ёзинг (масалан, «Мантиқий тест» дан 20 та).
+</div>
+
 <div class="card">
   <form method="get" class="row" style="margin-bottom:18px">
     <label class="field-label" style="margin:0">Бўлим:</label>
@@ -17,23 +23,21 @@
   <form method="post" class="row top" style="gap:16px;align-items:flex-end">{% csrf_token %}
     <input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="mode" value="random">
     <div class="field" style="margin:0">
-      <label for="count">Нечта савол тасодифий танлансин?</label>
+      <label for="count">Блокка нечта савол қўшилсин? (тизим ўзи тасодифий танлайди)</label>
       <div class="row" style="gap:10px;flex-wrap:nowrap">
-        <input id="count" type="number" name="count" min="1" max="{{ available_count }}" value="{% if available_count < 10 %}{{ available_count }}{% else %}10{% endif %}" style="width:120px;height:48px;font-size:20px;font-weight:700;text-align:center">
+        <input id="count" type="number" name="count" min="1" max="{{ available_count }}" value="" placeholder="сон" style="width:120px;height:48px;font-size:20px;font-weight:700;text-align:center">
         <span class="muted">/ {{ available_count }} та мавжуд</span>
       </div>
     </div>
-    <button class="btn lg" {% if not available_count %}disabled{% endif %}>🎲 Тасодифий танлаб қўшиш</button>
+    <button class="btn lg" {% if not available_count %}disabled{% endif %}>🎲 Тасодифий танлаб блокка қўшиш</button>
   </form>
   {% if available_count %}
   <form method="post" style="margin-top:12px">{% csrf_token %}
     <input type="hidden" name="bank" value="{{ bank.pk }}"><input type="hidden" name="mode" value="random"><input type="hidden" name="count" value="{{ available_count }}">
     <button class="btn secondary">{% icon "plus" %} Барчасини қўшиш ({{ available_count }} та)</button>
-    <span class="muted small" style="margin-left:8px">— номзодларга ҳар хил савол тушиши учун: барчасини қўшинг, кейин блок созламасида «Ҳар бир номзодга нечта савол» ни белгиланг.</span>
   </form>
   {% endif %}
-  <p class="muted small" style="margin:12px 0 0">Тизим бўлимдан шунча саволни тасодифий танлаб, блокка қўшади. Блокда аллақачон бор саволлар қайта танланмайди.
-    Блок созламасида «Ҳар бир номзодга нечта савол» берилса, ҳар бир номзодга блокдаги саволлардан ўзининг тўплами тасодифий тушади.</p>
+  <p class="muted small" style="margin:12px 0 0">Масалан, 10 ёзилса, тизим бўлимдан 10 та саволни <b>бир марта</b> тасодифий танлаб блокка қўшади ва шу 10 та савол ҳамма номзодга берилади. Блокда аллақачон бор саволлар қайта танланмайди.</p>
   {% endif %}
 </div>
 
