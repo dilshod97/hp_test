@@ -25,7 +25,7 @@
   </form>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Номзод</th><th>Тест</th><th>Ҳолат</th><th class="num">Мантиқий</th><th class="num">Касбий</th><th class="num">Амалий</th><th class="num">Суҳбат</th><th class="num">Ҳимоя</th><th class="num">Якуний</th></tr></thead>
+    <thead><tr><th>Номзод</th><th>Тест</th><th>Ҳолат</th>{% if cols.logic %}<th class="num">Мантиқий тест</th>{% endif %}{% if cols.test %}<th class="num">Касбий тест</th>{% endif %}{% if cols.practical %}<th class="num">Ёзма амалий</th>{% endif %}{% if cols.interview %}<th class="num">Суҳбат</th>{% endif %}{% if cols.defense %}<th class="num">Ҳимоя</th>{% endif %}<th class="num">Якуний балл</th></tr></thead>
     <tbody>
     {% for row in rows %}{% with a=row.a s=row.s %}
     <tr onclick="location.href='{% url 'result_detail' a.pk %}'" style="cursor:pointer">
@@ -35,20 +35,20 @@
       </div></td>
       <td class="small">{{ a.test.title }}</td>
       <td><span class="badge {{ a.status }}">{{ a.get_status_display }}</span>{% if row.missing %}<div class="small" style="margin-top:4px;color:var(--danger);font-weight:600">⚠ {{ row.missing }} та эксперт йўқ</div>{% elif a.third_review_needed %}<div class="small muted" style="margin-top:4px" title="{{ a.third_review_reason }}">⚖ 3-текширув</div>{% endif %}</td>
-      <td class="num">{% if s.logic %}{{ s.logic.score|num }}<span class="muted">/{{ s.logic.max|num }}</span>{% else %}—{% endif %}</td>
-      <td class="num">{% if s.test %}{{ s.test.score|num }}<span class="muted">/{{ s.test.max|num }}</span>{% else %}—{% endif %}</td>
-      <td class="num">{% if s.practical %}{{ s.practical.score|num }}<span class="muted">/{{ s.practical.max|num }}</span>{% if a.status == 'finished' %}<div class="muted small">оралиқ</div>{% endif %}{% else %}—{% endif %}</td>
-      <td class="num">{% if s.interview %}{{ s.interview.score|num }}<span class="muted">/{{ s.interview.max|num }}</span>{% else %}—{% endif %}</td>
-      <td class="num">{{ s.defense|num }}</td>
-      <td class="num"><b style="font-size:16px">{{ s.final|num }}</b>{% if s.final is None and s.partial %}<div class="muted small">ҳозирча {{ s.partial|num }}</div>{% endif %}</td>
+      {% if cols.logic %}<td class="num">{% include "exam/staff/_part_cell.html" with p=s.logic %}</td>{% endif %}
+      {% if cols.test %}<td class="num">{% include "exam/staff/_part_cell.html" with p=s.test %}</td>{% endif %}
+      {% if cols.practical %}<td class="num">{% include "exam/staff/_part_cell.html" with p=s.practical %}</td>{% endif %}
+      {% if cols.interview %}<td class="num">{% include "exam/staff/_part_cell.html" with p=s.interview %}</td>{% endif %}
+      {% if cols.defense %}<td class="num">{% if s.defense_max %}{{ s.defense|num }} <span class="muted">/ {{ s.defense_max|num }}</span>{% else %}—{% endif %}</td>{% endif %}
+      <td class="num"><b style="font-size:16px">{{ s.final|num }}</b>{% if s.final is not None %} <span class="muted">/ 100</span>{% endif %}{% if s.final is None and s.partial %}<div class="muted small">ҳозирча {{ s.partial|num }}</div>{% endif %}</td>
     </tr>
     {% endwith %}{% empty %}
-    <tr><td colspan="9"><div class="empty">{% icon "inbox" %}<div>Ҳали натижа йўқ</div></div></td></tr>
+    <tr><td colspan="{{ cols.span }}"><div class="empty">{% icon "inbox" %}<div>Ҳали натижа йўқ</div></div></td></tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
 </div>
-<p class="muted small">Якуний балл (100) = амалий × вазн/макс + мантиқий × вазн/макс + касбий тест × вазн/макс + суҳбат × вазн/макс + ҳимоя. Барча қисмлар киритилгандан кейин ҳисобланади.
-Мантиқий тест талқини (20 баллик): 0–7 сезиларли қийинчилик, 8–13 қисман, 14–17 яхши, 18–20 юқори — бу IQ ўлчови эмас ва ёлғиз рад этиш асоси бўлмайди.</p>
+<p class="muted small">Ҳар бир устунда — шу қисм учун олинган балл ва унинг энг юқори қиймати. Якуний балл — уларнинг йиғиндиси (100 баллдан).
+Мантиқий тест талқини: 20 саволдан 0–7 тўғри — сезиларли қийинчилик, 8–13 — қисман, 14–17 — яхши, 18–20 — юқори; бу IQ ўлчови эмас ва ёлғиз рад этиш асоси бўлмайди.</p>
 {% endblock %}

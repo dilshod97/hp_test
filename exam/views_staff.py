@@ -676,6 +676,16 @@ def _main_test_ids():
     return dict(Test.objects.exclude(ru_version=None).values_list("ru_version_id", "pk"))
 
 
+def _result_columns(rows):
+    """Фақат ишлатилаётган қисмлар устуни кўрсатилади (вазни 0 бўлса — яширинади)."""
+    cols = {k: any((r["s"].get(k) or {}).get("weight") for r in rows) for k in ("logic", "test", "practical", "interview")}
+    cols["defense"] = any(r["s"]["defense_max"] for r in rows)
+    if not rows:
+        cols.update(logic=True, test=True, practical=True)
+    cols["span"] = 4 + sum(1 for k, v in cols.items() if v is True)
+    return cols
+
+
 @role_required("can_manage_candidates")
 def candidate_list(request):
     qs = Assignment.objects.select_related("candidate", "test").order_by("-created_at")
@@ -869,7 +879,7 @@ def results(request):
     counts = {r["status"]: r["n"] for r in base.values("status").annotate(n=Count("id"))}
     registered = Assignment.objects.filter(**({"test_id": request.GET["test"]} if request.GET.get("test") else {})).count()
     return render(request, "exam/staff/results.html", {
-        "rows": rows,
+        "rows": rows, "cols": _result_columns(rows),
         "stats": {
             "registered": registered,
             "in_progress": counts.get(Attempt.Status.IN_PROGRESS, 0),
@@ -1017,7 +1027,8 @@ def results_export(request):
     headers = [
         "Код", "Фамилия", "Исм", "Отасининг исми", "Туғилган сана", "Тест", "Ҳолат",
         "Расм", "Мантиқий тест", "Мантиқий макс.", "Талқин", "Касбий тест", "Касбий макс.", "Ёзма амалий", "Амалий макс.",
-        "Суҳбат", "Суҳбат макс.", "Ҳимоя", "Якуний (100)", "Учинчи текширув", "Экспертлар",
+        "Суҳбат", "Суҳбат макс.", "Ҳимоя", "Мантиқий бали (100 шкала)", "Касбий бали (100 шкала)",
+        "Амалий бали (100 шкала)", "Якуний (100)", "Учинчи текширув", "Экспертлар",
         "Бошлаган", "Топширган",
     ]
     ws.append(headers)
@@ -1037,13 +1048,14 @@ def results_export(request):
             _num(prof.get("score")), _num(prof.get("max")),
             _num(practical.get("score")), _num(practical.get("max")),
             _num(interview.get("score")), _num(interview.get("max")),
-            _num(s["defense"]), _num(s["final"]),
+            _num(s["defense"]), _num(logic.get("weighted")), _num(prof.get("weighted")),
+            _num(practical.get("weighted")), _num(s["final"]),
             a.third_review_reason if a.third_review_needed else "",
             ", ".join(str(r.checker) for r in a.reviews.all()),
             a.started_at.astimezone(tz).replace(tzinfo=None),
             a.finished_at.astimezone(tz).replace(tzinfo=None) if a.finished_at else None,
         ])
-    widths = [10, 16, 14, 18, 14, 30, 13, 16, 10, 10, 20, 10, 10, 10, 10, 9, 9, 9, 11, 28, 30, 18, 18]
+    widths = [10, 16, 14, 18, 14, 30, 13, 16, 10, 10, 20, 10, 10, 10, 10, 12, 12, 12, 9, 9, 9, 11, 28, 30, 18, 18]
     for i, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
@@ -1184,5 +1196,5 @@ def hr_results(request):
     # Код бўйича тартиб — вақт ёки рўйхат тартиби орқали номзодни топиб бўлмасин
     rows = [{"a": a, "s": grading.summary(a)} for a in qs.order_by("code")]
     return render(request, "exam/staff/hr_results.html", {
-        "rows": rows, "tests": Test.objects.all(), "params": request.GET,
+        "rows": rows, "cols": _result_columns(rows), "tests": Test.objects.all(), "params": request.GET,
     })

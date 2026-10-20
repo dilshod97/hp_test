@@ -229,6 +229,7 @@ def summary(attempt):
     for key, part in parts.items():
         if part is None:
             continue
+        part["weight"] = d(weights[key])
         if part["score"] is None or not part["max"]:
             complete = False
             part["weighted"] = None

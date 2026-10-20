@@ -570,6 +570,15 @@ class ProfessionalTestScoringTests(Base):
         s = grading.summary(attempt)
         self.assertEqual((s["test"]["score"], s["test"]["max"]), (1, 1))
         self.assertEqual(s["logic"]["score"], 0)
+        # Устунларда 100 баллик шкаладаги бал (2/2), остида хом натижа (1 / 1)
+        self.assertEqual((s["test"]["weighted"], s["test"]["weight"]), (2, 2))
+        self.client.force_login(self.admin)
+        for url in (reverse("results"), reverse("result_detail", args=[attempt.pk])):
+            r = self.client.get(url)
+            self.assertContains(r, "Касбий")
+            self.assertContains(r, "/ 2")
+            self.assertNotContains(r, "Суҳбат</th>")   # вазни 0 — устун яширин
+        self.assertEqual(self.client.get(reverse("results_export")).status_code, 200)
 
 
 class SessionTests(Base):

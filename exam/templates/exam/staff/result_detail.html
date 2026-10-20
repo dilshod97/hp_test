@@ -33,11 +33,11 @@
 </div>
 
 <div class="grid cols-4" style="margin-bottom:24px">
-  {% if summary.logic %}<div class="stat"><div class="label">Мантиқий тест</div><div class="value">{{ summary.logic.score|num }}<span class="muted" style="font-size:16px"> / {{ summary.logic.max|num }}</span></div><div class="sub">{{ summary.logic_band|default:"—" }}</div></div>{% endif %}
-  {% if summary.test %}<div class="stat"><div class="label">Касбий тест</div><div class="value">{{ summary.test.score|num }}<span class="muted" style="font-size:16px"> / {{ summary.test.max|num }}</span></div><div class="sub">ACCA, иқтисодиёт</div></div>{% endif %}
-  {% if summary.practical %}<div class="stat"><div class="label">Ёзма амалий</div><div class="value">{{ summary.practical.score|num }}<span class="muted" style="font-size:16px"> / {{ summary.practical.max|num }}</span></div><div class="sub">{% if attempt.status == 'finished' %}оралиқ натижа{% else %}экспертлар баҳоси{% endif %}</div></div>{% endif %}
-  {% if summary.interview %}<div class="stat"><div class="label">Суҳбат</div><div class="value">{{ summary.interview.score|num }}<span class="muted" style="font-size:16px"> / {{ summary.interview.max|num }}</span></div><div class="sub">комиссия</div></div>{% endif %}
-  <div class="stat"><div class="label">Ҳимоя</div><div class="value">{{ summary.defense|num }}<span class="muted" style="font-size:16px"> / {{ summary.defense_max|num }}</span></div><div class="sub">комиссия</div></div>
+  {% if summary.logic and summary.logic.weight %}{% include "exam/staff/_part_stat.html" with p=summary.logic label="Мантиқий тест" unit="тўғри" extra=summary.logic_band %}{% endif %}
+  {% if summary.test and summary.test.weight %}{% include "exam/staff/_part_stat.html" with p=summary.test label="Касбий тест (ACCA, иқтисод)" unit="тўғри" %}{% endif %}
+  {% if summary.practical and summary.practical.weight %}{% include "exam/staff/_part_stat.html" with p=summary.practical label="Ёзма амалий" unit="мезон бали" %}{% endif %}
+  {% if summary.interview and summary.interview.weight %}{% include "exam/staff/_part_stat.html" with p=summary.interview label="Суҳбат" unit="балл" %}{% endif %}
+  {% if summary.defense_max %}<div class="stat"><div class="label">Ҳимоя</div><div class="value">{{ summary.defense|num }}<span class="muted" style="font-size:16px"> / {{ summary.defense_max|num }}</span></div><div class="sub">комиссия</div></div>{% endif %}
   <div class="stat accent"><div class="label">Якуний балл</div><div class="value">{{ summary.final|num }}<span class="muted" style="font-size:16px"> / 100</span></div><div class="sub">{% if summary.final is None %}ҳозирча {{ summary.partial|num }} — ҳамма қисм киритилмаган{% else %}барча қисмлар ҳисобланди{% endif %}</div></div>
 </div>
 

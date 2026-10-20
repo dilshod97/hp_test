@@ -1,0 +1,1 @@
+{% load exam_tags %}{% if not p or not p.weight %}—{% elif p.weighted is not None %}<b>{{ p.weighted|num }}</b> <span class="muted">/ {{ p.weight|num }}</span>{% else %}<span class="muted small">текширилмоқда</span>{% endif %}
