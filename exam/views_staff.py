@@ -851,8 +851,50 @@ def candidate_template(request):
     return response
 
 
+def _date_range(request):
+    """«from» / «to» (ЙЙЙЙ-ОО-КК) — тест бошланган сана бўйича давр. Нотўғри қиймат эътиборсиз қолади."""
+    from datetime import date
+
+    def parse(key):
+        try:
+            return date.fromisoformat(request.GET.get(key, ""))
+        except ValueError:
+            return None
+    return parse("from"), parse("to")
+
+
+def _filter_dates(qs, request, field="started_at"):
+    start, end = _date_range(request)
+    if start:
+        qs = qs.filter(**{f"{field}__date__gte": start})
+    if end:
+        qs = qs.filter(**{f"{field}__date__lte": end})
+    return qs
+
+
+def _date_presets(request):
+    """Тез танлаш: бугун, кеча, шу ҳафта, шу ой (бошқа филтрлар сақланади)."""
+    from datetime import timedelta
+
+    today = timezone.localdate()
+    ranges = [
+        ("Бугун", today, today),
+        ("Кеча", today - timedelta(days=1), today - timedelta(days=1)),
+        ("Шу ҳафта", today - timedelta(days=today.weekday()), today),
+        ("Шу ой", today.replace(day=1), today),
+    ]
+    start, end = _date_range(request)
+    out = []
+    for label, a, b in ranges:
+        q = request.GET.copy()
+        q["from"], q["to"] = a.isoformat(), b.isoformat()
+        out.append({"label": label, "query": q.urlencode(), "active": (start, end) == (a, b)})
+    return out
+
+
 def _results_queryset(request):
     qs = Attempt.objects.select_related("candidate", "test").prefetch_related("reviews__checker")
+    qs = _filter_dates(qs, request)
     test_id = request.GET.get("test")
     status = request.GET.get("status")
     search = request.GET.get("q", "").strip()
@@ -873,11 +915,15 @@ def results(request):
     Attempt.finish_abandoned()
     Attempt.purge_old_photos()
     rows = [{"a": a, "s": grading.summary(a), "missing": grading.missing_reviewers(a)} for a in _results_queryset(request)]
-    base = Attempt.objects.all()
+    base = _filter_dates(Attempt.objects.all(), request)
     if request.GET.get("test"):
         base = base.filter(test_id=request.GET["test"])
     counts = {r["status"]: r["n"] for r in base.values("status").annotate(n=Count("id"))}
-    registered = Assignment.objects.filter(**({"test_id": request.GET["test"]} if request.GET.get("test") else {})).count()
+    start, end = _date_range(request)
+    if start or end:   # даврда — шу даврда тестни бошлаганлар
+        registered = base.count()
+    else:
+        registered = Assignment.objects.filter(**({"test_id": request.GET["test"]} if request.GET.get("test") else {})).count()
     return render(request, "exam/staff/results.html", {
         "rows": rows, "cols": _result_columns(rows),
         "stats": {
@@ -889,6 +935,8 @@ def results(request):
         "tests": Test.objects.all(),
         "statuses": Attempt.Status.choices,
         "params": request.GET,
+        "dated": any(_date_range(request)),
+        "presets": _date_presets(request),
     })
 
 

@@ -8,7 +8,7 @@
 </div>
 
 <div class="grid cols-4" style="margin-bottom:24px">
-  <div class="stat"><div class="label">{% icon "id" %} Рўйхатда</div><div class="value">{{ stats.registered }}</div><div class="sub">номзод</div></div>
+  <div class="stat"><div class="label">{% icon "id" %} {% if dated %}Тест топширганлар{% else %}Рўйхатда{% endif %}</div><div class="value">{{ stats.registered }}</div><div class="sub">{% if dated %}танланган даврда{% else %}номзод{% endif %}</div></div>
   <div class="stat"><div class="label">{% icon "clock" %} Ҳозир ечмоқда</div><div class="value">{{ stats.in_progress }}</div><div class="sub">номзод</div></div>
   <div class="stat"><div class="label">{% icon "check" %} Текширилмоқда</div><div class="value">{{ stats.finished }}</div><div class="sub">эксперт кутмоқда</div></div>
   <div class="stat accent"><div class="label">{% icon "ok" %} Баҳоланди</div><div class="value">{{ stats.graded }}</div><div class="sub">тайёр натижа</div></div>
@@ -20,9 +20,16 @@
       {% for t in tests %}<option value="{{ t.pk }}" {% if params.test == t.pk|stringformat:'s' %}selected{% endif %}>{{ t.title }}</option>{% endfor %}</select>
     <select name="status" onchange="this.form.submit()"><option value="">Барча ҳолатлар</option>
       {% for v, l in statuses %}<option value="{{ v }}" {% if params.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    <label class="date-f">Санадан <input type="date" name="from" value="{{ params.from }}" onchange="this.form.submit()"></label>
+    <label class="date-f">Санагача <input type="date" name="to" value="{{ params.to }}" onchange="this.form.submit()"></label>
     <input class="search" type="text" name="q" placeholder="Фамилия, исм ёки код бўйича қидириш" value="{{ params.q }}">
     <button class="btn secondary">{% icon "search" %} Қидириш</button>
   </form>
+  <div class="presets">
+    <span class="muted small">Давр:</span>
+    {% for p in presets %}<a class="chip{% if p.active %} on{% endif %}" href="?{{ p.query }}">{{ p.label }}</a>{% endfor %}
+    {% if dated %}<a class="chip clear" href="?{% for k, v in params.items %}{% if k != 'from' and k != 'to' %}{{ k }}={{ v|urlencode }}&amp;{% endif %}{% endfor %}">✕ Барча саналар</a>{% endif %}
+  </div>
   <div class="table-wrap">
   <table class="sortable">
     <thead><tr><th>Номзод</th><th>Тест</th><th>Ҳолат</th>{% if cols.logic %}<th class="num">Мантиқий тест</th>{% endif %}{% if cols.test %}<th class="num">Касбий тест</th>{% endif %}{% if cols.practical %}<th class="num">Ёзма амалий</th>{% endif %}{% if cols.interview %}<th class="num">Суҳбат</th>{% endif %}{% if cols.defense %}<th class="num">Ҳимоя</th>{% endif %}<th class="num">Якуний балл</th></tr></thead>

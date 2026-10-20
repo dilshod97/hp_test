@@ -590,6 +590,34 @@ class ProfessionalTestScoringTests(Base):
         self.assertContains(r, "ҳар бир савол 47 балл")
 
 
+class ResultDateFilterTests(Base):
+    def test_filter_by_period(self):
+        self.login_candidate()
+        old = Attempt.objects.get()
+        other = self.register("Petrov", "Ivan", "", "1990")
+        self.client.logout(); self.client.cookies.clear()
+        self.login_candidate(assignment=other)
+        Attempt.objects.filter(pk=old.pk).update(started_at=timezone.now() - timedelta(days=3))
+        today = timezone.localdate().isoformat()
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("results"), {"from": today, "to": today})
+        self.assertContains(r, "Petrov")
+        self.assertNotContains(r, "Karimov")
+        self.assertContains(r, "Тест топширганлар")
+        self.assertContains(r, "Бугун")
+        r = self.client.get(reverse("results"))
+        self.assertContains(r, "Karimov")
+        r = self.client.get(reverse("results"), {"to": (timezone.localdate() - timedelta(days=1)).isoformat()})
+        self.assertContains(r, "Karimov")
+        self.assertNotContains(r, "Petrov")
+        # Excel ҳам шу давр бўйича; нотўғри сана эътиборсиз
+        from openpyxl import load_workbook
+        from io import BytesIO
+        wb = load_workbook(BytesIO(self.client.get(reverse("results_export"), {"from": today}).content))
+        self.assertEqual([row[1] for row in wb.active.iter_rows(min_row=2, values_only=True)], ["Petrov"])
+        self.assertEqual(self.client.get(reverse("results"), {"from": "xato"}).status_code, 200)
+
+
 class SessionTests(Base):
     def test_candidate_login_drops_staff_session(self):
         self.client.force_login(self.admin)

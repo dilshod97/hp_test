@@ -400,3 +400,12 @@ th.sort-th:hover { color: var(--primary); }
 th.sort-th::after { content: " ⇅"; opacity: .35; font-size: 11px; }
 th.sort-th[data-dir="asc"]::after { content: " ▲"; opacity: 1; color: var(--primary); }
 th.sort-th[data-dir="desc"]::after { content: " ▼"; opacity: 1; color: var(--primary); }
+
+/* Натижалар: сана бўйича филтр */
+.toolbar .date-f { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.toolbar .date-f input { width: auto; }
+.presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 20px 14px; }
+.presets .chip { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); font-size: 13px; color: var(--text, #0f172a); text-decoration: none; background: #fff; }
+.presets .chip:hover { border-color: var(--primary); color: var(--primary); }
+.presets .chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+.presets .chip.clear { color: var(--muted); }
