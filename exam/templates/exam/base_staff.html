@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Тест тизими{% endblock %} — Танлов тизими</title>
-<link rel="stylesheet" href="{% static 'exam/style.css' %}?v=7">
+<link rel="stylesheet" href="{% static 'exam/style.css' %}?v=8">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231d4ed8'/%3E%3Cpath d='M16 8 4 14l12 6 12-6z' fill='white'/%3E%3C/svg%3E">
 {% block head %}{% endblock %}
 </head>
@@ -84,6 +84,31 @@
     }
   });
 })();
+</script>
+<script>
+// Устун сарлавҳасини босиб жадвални тартиблаш: <table class="sortable">, катакда data-v (бўлмаса — матн)
+document.querySelectorAll('table.sortable').forEach(table => {
+  const heads = Array.from(table.querySelectorAll('thead th'));
+  heads.forEach((th, col) => {
+    th.classList.add('sort-th');
+    th.title = 'Тартиблаш';
+    th.addEventListener('click', () => {
+      const body = table.tBodies[0];
+      const rows = Array.from(body.rows).filter(r => r.cells.length > 1);
+      const val = r => { const c = r.cells[col]; return c ? (c.dataset.v ?? c.textContent.trim()) : ''; };
+      const numeric = rows.every(r => val(r) === '' || !isNaN(parseFloat(val(r))));
+      const desc = th.dataset.dir !== 'desc' && (numeric || th.dataset.dir === 'asc');
+      heads.forEach(h => delete h.dataset.dir);
+      th.dataset.dir = desc ? 'desc' : 'asc';
+      rows.sort((a, b) => {
+        const x = val(a), y = val(b);
+        const d = numeric ? (parseFloat(x || -1) - parseFloat(y || -1)) : x.localeCompare(y, 'uz');
+        return desc ? -d : d;
+      });
+      rows.forEach(r => body.appendChild(r));
+    });
+  });
+});
 </script>
 <script>
 // Браузернинг рус тилидаги кичик огоҳлантиришлари ўрнига сервер хатолари (кириллчада) кўрсатилади

@@ -393,3 +393,10 @@ details summary { cursor: pointer; }
 .lang-switch a.on { background: var(--primary-soft, #dbeafe); color: var(--primary, #1d4ed8); font-weight: 600; }
 .lang-btn { flex-direction: column; align-items: flex-start; gap: 2px; height: auto; padding: 14px 18px; text-align: left; }
 .lang-btn small { font-weight: 400; opacity: .85; font-size: 13px; }
+
+/* Тартибланадиган жадвал */
+th.sort-th { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sort-th:hover { color: var(--primary); }
+th.sort-th::after { content: " ⇅"; opacity: .35; font-size: 11px; }
+th.sort-th[data-dir="asc"]::after { content: " ▲"; opacity: 1; color: var(--primary); }
+th.sort-th[data-dir="desc"]::after { content: " ▼"; opacity: 1; color: var(--primary); }

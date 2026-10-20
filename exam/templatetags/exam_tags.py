@@ -15,6 +15,18 @@ def letter(index):
 
 
 @register.filter
+def sortv(part):
+    """Жадвални тартиблаш учун: қисмнинг 100 баллик шкаладаги бали (йўқ бўлса -1)."""
+    return sortnum((part or {}).get("weighted"))
+
+
+@register.filter
+def sortnum(value):
+    """Сон — локалсиз («32.5»), йўқ бўлса -1: браузерда тартиблаш учун."""
+    return "-1" if value is None or value == "" else f"{float(value):.2f}"
+
+
+@register.filter
 def num(value):
     """Ballni chiroyli ko'rsatish: None -> —, 2.00 -> 2, 7.50 -> 7,5."""
     if value is None or value == "":
