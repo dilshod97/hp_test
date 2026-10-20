@@ -94,6 +94,10 @@ class QuestionBank(models.Model):
                     Question.objects.filter(pk=q.pk).update(order=i)
 
 
+# Блок тури → тестдаги вазн майдони (якуний 100 баллдаги улуши)
+KIND_WEIGHT = {"logic": "weight_logic", "test": "weight_test", "practical": "weight_practical"}
+
+
 class Language(models.TextChoices):
     UZ = "uz", "Ўзбекча"
     RU = "ru", "Русча"
@@ -191,6 +195,21 @@ class Test(models.Model):
         return sum((b.max_per_candidate for b in self.blocks.filter(kind=kind)), Decimal(0))
 
     @property
+    def score_parts(self):
+        """Якуний балл таркиби: [(қисм, балл)] — масалан мантиқий 40 + касбий 30 + ёзма 30 = 100."""
+        kinds = set(self.blocks.values_list("kind", flat=True))
+        parts = [(label, getattr(self, KIND_WEIGHT[kind])) for kind, label in
+                 ((Kind.LOGIC, "мантиқий"), (Kind.TEST, "касбий"), (Kind.PRACTICAL, "ёзма")) if kind in kinds]
+        if self.interview_questions.exists():
+            parts.append(("суҳбат", self.weight_interview))
+        parts.append(("ҳимоя", self.weight_defense))
+        return [(label, w) for label, w in parts if w]
+
+    @property
+    def final_max(self):
+        return sum((w for _, w in self.score_parts), Decimal(0))
+
+    @property
     def required_reviews(self):
         return 2 if self.review_mode == self.ReviewMode.DOUBLE else 1
 
@@ -246,6 +265,17 @@ class Block(models.Model):
     @property
     def is_drawn(self):
         return any(n < len(pool) for pool, n in self.draw_plan())
+
+    @property
+    def points_each(self):
+        """Битта савол якуний 100 баллдан нечага тенг (масалан тест — 2, ёзма топшириқ — 6)."""
+        field = KIND_WEIGHT.get(self.kind)
+        weight = getattr(self.test, field) if field else None
+        kind_max = self.test.max_score_for(self.kind) if weight else 0
+        q = self.questions.order_by("order").first()
+        if not kind_max or q is None:
+            return None
+        return (weight * q.max_score / kind_max).quantize(Decimal("0.1"))
 
     @property
     def max_per_candidate(self):

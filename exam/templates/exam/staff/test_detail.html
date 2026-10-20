@@ -12,7 +12,7 @@
       {% if test.ru_version %}<span>Рус варианти: <a href="{% url 'test_detail' test.ru_version.pk %}"><b>{{ test.ru_version.title }}</b></a>{% if not test.ru_version.is_active %} <span class="badge off">нофаол</span>{% endif %}</span>{% endif %}
       {% if test.uz_original %}<span>Асосий тест: <a href="{% url 'test_detail' test.uz_original.pk %}"><b>{{ test.uz_original.title }}</b></a></span>{% endif %}
       <span>{% icon "clock" %} <b>{{ test.total_minutes }}</b> дақиқа</span>
-      <span>Макс. балл: <b>{{ test.max_score|num }}</b></span>
+      <span>Якуний балл: <b>{{ test.final_max|num }}</b>{% with parts=test.score_parts %}{% if parts %} ({% for label, w in parts %}{{ label }} {{ w|num }}{% if not forloop.last %} + {% endif %}{% endfor %}){% endif %}{% endwith %}</span>
       <span>Номзодлар: {% if user.is_superadmin %}<a href="{% url 'candidate_list' %}?test={{ test.pk }}"><b>{{ test.assignments.count }}</b></a>{% else %}<b>{{ test.assignments.count }}</b>{% endif %}</span>
     </div>
   </div>
@@ -51,6 +51,7 @@
     <div class="card-head">
       <div><h2><span class="block-num">{{ forloop.counter }}</span>{{ b.title }}</h2>
         <div class="muted small" style="margin:4px 0 0 36px">{{ b.get_kind_display }} · {{ b.duration_minutes }} дақиқа ·
+          {% with pe=b.points_each %}{% if pe %}<b>ҳар бир савол {{ pe|num }} балл</b> ·{% endif %}{% endwith %}
           {% if b.is_drawn %}<b style="color:var(--primary)">🎲 ҳар бир номзодга {{ b.per_candidate }} та</b> ({{ b.questions.all|length }} та саволдан тасодифий)
           {% else %}{{ b.questions.all|length }} савол · <span title="Ҳар бир номзодга тасодифий савол тушиши учун блокни таҳрирлаб, манба қўшинг">ҳамма номзодга бир хил</span>{% endif %}</div>
         {% with rl=b.rule_list %}{% if rl %}<div style="margin:8px 0 0 36px" class="row">{% for r in rl %}<span class="badge plain info">{{ r.bank.name }}: {{ r.count }} та</span>{% endfor %}</div>{% endif %}{% endwith %}</div>

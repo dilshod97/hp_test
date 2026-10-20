@@ -579,6 +579,11 @@ class ProfessionalTestScoringTests(Base):
             self.assertContains(r, "/ 2")
             self.assertNotContains(r, "Суҳбат</th>")   # вазни 0 — устун яширин
         self.assertEqual(self.client.get(reverse("results_export")).status_code, 200)
+        # Тест саҳифаси: хом балл йиғиндиси эмас, якуний 100 балл ва ҳар саволнинг улуши
+        r = self.client.get(reverse("test_detail", args=[self.test.pk]))
+        self.assertContains(r, "Якуний балл: <b>100</b> (мантиқий 4 + касбий 2 + ёзма 94)")
+        self.assertContains(r, "ҳар бир савол 2 балл")
+        self.assertContains(r, "ҳар бир савол 47 балл")
 
 
 class SessionTests(Base):
