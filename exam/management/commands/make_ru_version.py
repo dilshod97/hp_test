@@ -1,7 +1,7 @@
 """
 Ўзбек тилидаги тестнинг рус вариантини яратади ва уни асосий тестга бириктиради.
 
-    python manage.py make_ru_version <тест ID> --source "<рус ҳужжатининг манба номи>" --title "Финансовый аудитор — отбор"
+    python manage.py make_ru_version <тест ID> --source "<манба 1>" [--source "<манба 2>"] --title "Финансовый аудитор — отбор"
 
 Тузилма (блоклар, вақт, «ҳар номзодга N та» қоидалари, суҳбат саволлари) асосий тестдан олинади,
 саволлар эса рус тилидаги бўлимлардан код бўйича олинади: МА → ФА, ТА → СА, С → С, Т1-01 → Т1-01.
@@ -42,7 +42,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("test_id", type=int)
-        parser.add_argument("--source", required=True, help="Рус тилидаги ҳужжатнинг манба номи (Саволлар базасида)")
+        parser.add_argument("--source", required=True, action="append",
+                            help="Рус тилидаги бўлимларнинг манба номи (бир нечта бўлса, ҳар бирига --source)")
         parser.add_argument("--title", required=True)
 
     @transaction.atomic
@@ -52,9 +53,10 @@ class Command(BaseCommand):
             raise CommandError("Тест топилмади.")
         if uz.ru_version_id:
             raise CommandError(f"Бу тестнинг рус варианти бор: {uz.ru_version}.")
-        ru_banks = QuestionBank.objects.filter(source=source)
-        if not ru_banks.exists():
-            raise CommandError(f"«{source}» манбали бўлимлар топилмади.")
+        ru_banks = QuestionBank.objects.filter(source__in=source)
+        missing = set(source) - set(ru_banks.values_list("source", flat=True))
+        if missing:
+            raise CommandError(f"Бу манбали бўлимлар топилмади: {', '.join(missing)}.")
         ru_questions = {q.code: q for q in Question.objects.filter(bank__in=ru_banks)}
 
         def twin(q):
