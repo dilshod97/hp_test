@@ -1232,17 +1232,19 @@ def bank_import(request):
 
 @role_required("can_manage_candidates")
 def hr_results(request):
-    """Натижалар фақат аноним код билан: исм, туғилган йил, расм ва вақт кўрсатилмайди."""
+    """HR учун натижалар: номзоднинг Ф.И.Ш. ва баллари. Расм ва жавоблар фақат суперадминга кўринади."""
     Attempt.finish_abandoned()
-    qs = Attempt.objects.select_related("test").exclude(status=Attempt.Status.IN_PROGRESS)
+    qs = _filter_dates(Attempt.objects.select_related("test", "candidate")
+                       .exclude(status=Attempt.Status.IN_PROGRESS), request)
     test_id = request.GET.get("test")
-    code = request.GET.get("q", "").strip().upper()
+    search = request.GET.get("q", "").strip()
     if test_id:
         qs = qs.filter(test_id=test_id)
-    if code:
-        qs = qs.filter(code__icontains=code)
-    # Код бўйича тартиб — вақт ёки рўйхат тартиби орқали номзодни топиб бўлмасин
-    rows = [{"a": a, "s": grading.summary(a)} for a in qs.order_by("code")]
+    if search:
+        qs = qs.filter(Q(candidate__last_name__icontains=search) | Q(candidate__first_name__icontains=search)
+                       | Q(code__icontains=search))
+    rows = [{"a": a, "s": grading.summary(a)} for a in qs.order_by("candidate__last_name", "candidate__first_name")]
     return render(request, "exam/staff/hr_results.html", {
         "rows": rows, "cols": _result_columns(rows), "tests": Test.objects.all(), "params": request.GET,
+        "dated": any(_date_range(request)), "presets": _date_presets(request),
     })

@@ -1237,22 +1237,22 @@ class MissingReviewerTests(Base):
 
 
 class HrResultsTests(Base):
-    def test_hr_sees_codes_not_names(self):
+    def test_hr_sees_names_and_scores_but_not_photo_or_answers(self):
         attempt = self.take_test()
         self.grade(attempt.reviews.first().checker, attempt, {self.q_ma1: [2] * 5, self.q_ma2: [1] * 5})
         hr = User.objects.create_user("hr", password="x" * 10, role=User.Role.HR)
         self.client.force_login(hr)
         r = self.client.get(reverse("hr_results"))
         attempt.refresh_from_db()
-        self.assertContains(r, attempt.code)
-        self.assertContains(r, attempt.get_status_display())
-        for secret in ("Karimov", "Aziz", "1995", "photo.jpg"):
-            self.assertNotContains(r, secret)
-        # Номзодлар рўйхатида код кўринмайди (исм ва кодни боғлаб бўлмасин)
-        self.assertNotContains(self.client.get(reverse("candidate_list")), attempt.code)
-        # Тўлиқ натижалар ва номзод саҳифаси HR учун ёпиқ
+        for visible in (attempt.code, attempt.get_status_display(), "Karimov", "Aziz"):
+            self.assertContains(r, visible)
+        self.assertNotContains(r, "photo.jpg")
+        self.assertContains(self.client.get(reverse("hr_results"), {"q": "Karim"}), attempt.code)
+        self.assertNotContains(self.client.get(reverse("hr_results"), {"q": "Boshqa"}), attempt.code)
+        # Жавоблар, расм ва тўлиқ натижалар саҳифаси HR учун ёпиқ
         self.assertEqual(self.client.get(reverse("results")).status_code, 403)
         self.assertEqual(self.client.get(reverse("result_detail", args=[attempt.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("result_photo", args=[attempt.pk])).status_code, 403)
         self.assertEqual(self.client.get(reverse("results_export")).status_code, 403)
 
 

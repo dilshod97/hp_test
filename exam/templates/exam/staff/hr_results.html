@@ -1,22 +1,29 @@
 {% extends "exam/base_staff.html" %}
 {% load exam_tags %}
-{% block title %}Натижалар (код бўйича){% endblock %}
+{% block title %}Натижалар{% endblock %}
 {% block content %}
-<div class="page-head"><div><h1>Натижалар (код бўйича)</h1>
-  <div class="sub">Натижалар аноним код билан кўрсатилади — номзоднинг исми ва бошқа маълумотлари бу ерда кўринмайди.</div></div></div>
+<div class="page-head"><div><h1>Натижалар</h1>
+  <div class="sub">Тест топширган номзодларнинг баллари. Номзод расми ва жавоблари фақат суперадминга кўринади.</div></div></div>
 <div class="card flush">
   <form class="toolbar" method="get">
     <select name="test" onchange="this.form.submit()"><option value="">Барча тестлар</option>
       {% for t in tests %}<option value="{{ t.pk }}" {% if params.test == t.pk|stringformat:'s' %}selected{% endif %}>{{ t.title }}</option>{% endfor %}</select>
-    <input class="search" type="text" name="q" placeholder="Код бўйича қидириш (масалан K-516340)" value="{{ params.q }}">
+    <label class="date-f">Санадан <input type="date" name="from" value="{{ params.from }}" onchange="this.form.submit()"></label>
+    <label class="date-f">Санагача <input type="date" name="to" value="{{ params.to }}" onchange="this.form.submit()"></label>
+    <input class="search" type="text" name="q" placeholder="Фамилия, исм ёки код бўйича қидириш" value="{{ params.q }}">
     <button class="btn secondary">{% icon "search" %} Қидириш</button>
   </form>
+  <div class="presets">
+    <span class="muted small">Давр:</span>
+    {% for p in presets %}<a class="chip{% if p.active %} on{% endif %}" href="?{{ p.query }}">{{ p.label }}</a>{% endfor %}
+    {% if dated %}<a class="chip clear" href="?{% for k, v in params.items %}{% if k != 'from' and k != 'to' %}{{ k }}={{ v|urlencode }}&amp;{% endif %}{% endfor %}">✕ Барча саналар</a>{% endif %}
+  </div>
   <div class="table-wrap"><table class="sortable">
-    <thead><tr><th>Код</th><th>Тест</th><th>Ҳолат</th>{% if cols.logic %}<th class="num">Мантиқий тест</th>{% endif %}{% if cols.test %}<th class="num">Касбий тест</th>{% endif %}{% if cols.practical %}<th class="num">Ёзма амалий</th>{% endif %}{% if cols.interview %}<th class="num">Суҳбат</th>{% endif %}{% if cols.defense %}<th class="num">Ҳимоя</th>{% endif %}<th class="num">Якуний балл</th></tr></thead>
+    <thead><tr><th>Номзод</th><th>Тест</th><th>Ҳолат</th>{% if cols.logic %}<th class="num">Мантиқий тест</th>{% endif %}{% if cols.test %}<th class="num">Касбий тест</th>{% endif %}{% if cols.practical %}<th class="num">Ёзма амалий</th>{% endif %}{% if cols.interview %}<th class="num">Суҳбат</th>{% endif %}{% if cols.defense %}<th class="num">Ҳимоя</th>{% endif %}<th class="num">Якуний балл</th></tr></thead>
     <tbody>
     {% for row in rows %}{% with a=row.a s=row.s %}
     <tr>
-      <td class="mono" style="font-size:15px">{{ a.code }}</td>
+      <td data-v="{{ a.candidate.full_name }}"><b>{{ a.candidate.full_name }}</b><div class="muted small">{{ a.candidate.birth_display }} · <span class="mono">{{ a.code }}</span></div></td>
       <td class="small">{{ a.test.title }}</td>
       <td><span class="badge {{ a.status }}">{{ a.get_status_display }}</span></td>
       {% if cols.logic %}<td class="num" data-v="{{ s.logic|sortv }}">{% include "exam/staff/_part_cell.html" with p=s.logic %}</td>{% endif %}

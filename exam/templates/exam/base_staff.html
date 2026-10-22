@@ -21,7 +21,7 @@
         <a href="{% url 'candidate_list' %}" class="{% if 'candidate' in u or 'assignment' in u %}active{% endif %}">{% icon "id" %} Номзодлар</a>
       {% endif %}
       {% if user.is_hr %}
-        <a href="{% url 'hr_results' %}" class="{% if u == 'hr_results' %}active{% endif %}">{% icon "chart" %} Натижалар (код бўйича)</a>
+        <a href="{% url 'hr_results' %}" class="{% if u == 'hr_results' %}active{% endif %}">{% icon "chart" %} Натижалар</a>
       {% endif %}
       {% if user.is_author %}
         <a href="{% url 'test_list' %}" class="{% if 'test' in u or 'block' in u or u == 'question_create' %}active{% endif %}">{% icon "file" %} Тестлар</a>
