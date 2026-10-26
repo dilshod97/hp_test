@@ -1063,49 +1063,64 @@ def _num(value):
     return float(value) if value is not None else None
 
 
-@role_required("is_superadmin")
+@role_required("is_superadmin", "is_hr")
 def results_export(request):
+    """Натижалар Excel'да. HR — ўз саҳифасидаги каби: ечилаётганлар, расм ва экспертлар йўқ."""
     from openpyxl import Workbook
     from openpyxl.styles import Font
     from openpyxl.utils import get_column_letter
 
+    admin = request.user.is_superadmin
+    tz = timezone.get_current_timezone()
+    local = lambda dt: dt.astimezone(tz).replace(tzinfo=None) if dt else None
+    # (сарлавҳа, кенглик, қиймат, фақат суперадмин учун)
+    columns = [
+        ("Код", 10, lambda a, s, p: a.code, False),
+        ("Фамилия", 16, lambda a, s, p: a.candidate.last_name, False),
+        ("Исм", 14, lambda a, s, p: a.candidate.first_name, False),
+        ("Отасининг исми", 18, lambda a, s, p: a.candidate.middle_name, False),
+        ("Туғилган сана", 14, lambda a, s, p: a.candidate.birth_date or a.candidate.birth_year, False),
+        ("Тест", 30, lambda a, s, p: a.test.title, False),
+        ("Ҳолат", 13, lambda a, s, p: a.get_status_display(), False),
+        ("Расм", 16, lambda a, s, p: a.get_photo_status_display() if a.photo_status
+            else ("Олинмаган" if a.test.require_photo else "—"), True),
+        ("Мантиқий тест", 10, lambda a, s, p: _num(p["logic"].get("score")), False),
+        ("Мантиқий макс.", 10, lambda a, s, p: _num(p["logic"].get("max")), False),
+        ("Талқин", 20, lambda a, s, p: s["logic_band"], False),
+        ("Касбий тест", 10, lambda a, s, p: _num(p["test"].get("score")), False),
+        ("Касбий макс.", 10, lambda a, s, p: _num(p["test"].get("max")), False),
+        ("Ёзма амалий", 10, lambda a, s, p: _num(p["practical"].get("score")), False),
+        ("Амалий макс.", 10, lambda a, s, p: _num(p["practical"].get("max")), False),
+        ("Суҳбат", 9, lambda a, s, p: _num(p["interview"].get("score")), False),
+        ("Суҳбат макс.", 9, lambda a, s, p: _num(p["interview"].get("max")), False),
+        ("Ҳимоя", 9, lambda a, s, p: _num(s["defense"]), False),
+        ("Мантиқий бали (100 шкала)", 12, lambda a, s, p: _num(p["logic"].get("weighted")), False),
+        ("Касбий бали (100 шкала)", 12, lambda a, s, p: _num(p["test"].get("weighted")), False),
+        ("Амалий бали (100 шкала)", 12, lambda a, s, p: _num(p["practical"].get("weighted")), False),
+        ("Якуний (100)", 11, lambda a, s, p: _num(s["final"]), False),
+        ("Учинчи текширув", 28, lambda a, s, p: a.third_review_reason if a.third_review_needed else "", True),
+        ("Экспертлар", 30, lambda a, s, p: ", ".join(str(r.checker) for r in a.reviews.all()), True),
+        ("Бошлаган", 18, lambda a, s, p: local(a.started_at), False),
+        ("Топширган", 18, lambda a, s, p: local(a.finished_at), False),
+    ]
+    columns = [c for c in columns if admin or not c[3]]
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Натижалар"
-    headers = [
-        "Код", "Фамилия", "Исм", "Отасининг исми", "Туғилган сана", "Тест", "Ҳолат",
-        "Расм", "Мантиқий тест", "Мантиқий макс.", "Талқин", "Касбий тест", "Касбий макс.", "Ёзма амалий", "Амалий макс.",
-        "Суҳбат", "Суҳбат макс.", "Ҳимоя", "Мантиқий бали (100 шкала)", "Касбий бали (100 шкала)",
-        "Амалий бали (100 шкала)", "Якуний (100)", "Учинчи текширув", "Экспертлар",
-        "Бошлаган", "Топширган",
-    ]
-    ws.append(headers)
+    ws.append([c[0] for c in columns])
     for cell in ws[1]:
         cell.font = Font(bold=True)
 
-    tz = timezone.get_current_timezone()
-    for a in _results_queryset(request):
+    qs = _results_queryset(request)
+    if not admin:
+        qs = qs.exclude(status=Attempt.Status.IN_PROGRESS).order_by("candidate__last_name", "candidate__first_name")
+    for a in qs:
         s = grading.summary(a)
-        logic, practical, interview = s["logic"] or {}, s["practical"] or {}, s["interview"] or {}
-        prof = s["test"] or {}
-        ws.append([
-            a.code, a.candidate.last_name, a.candidate.first_name, a.candidate.middle_name,
-            a.candidate.birth_date or a.candidate.birth_year, a.test.title, a.get_status_display(),
-            a.get_photo_status_display() if a.photo_status else ("Олинмаган" if a.test.require_photo else "—"),
-            _num(logic.get("score")), _num(logic.get("max")), s["logic_band"],
-            _num(prof.get("score")), _num(prof.get("max")),
-            _num(practical.get("score")), _num(practical.get("max")),
-            _num(interview.get("score")), _num(interview.get("max")),
-            _num(s["defense"]), _num(logic.get("weighted")), _num(prof.get("weighted")),
-            _num(practical.get("weighted")), _num(s["final"]),
-            a.third_review_reason if a.third_review_needed else "",
-            ", ".join(str(r.checker) for r in a.reviews.all()),
-            a.started_at.astimezone(tz).replace(tzinfo=None),
-            a.finished_at.astimezone(tz).replace(tzinfo=None) if a.finished_at else None,
-        ])
-    widths = [10, 16, 14, 18, 14, 30, 13, 16, 10, 10, 20, 10, 10, 10, 10, 12, 12, 12, 9, 9, 9, 11, 28, 30, 18, 18]
-    for i, width in enumerate(widths, start=1):
-        ws.column_dimensions[get_column_letter(i)].width = width
+        parts = {k: s[k] or {} for k in ("logic", "test", "practical", "interview")}
+        ws.append([c[2](a, s, parts) for c in columns])
+    for i, c in enumerate(columns, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = c[1]
 
     buf = BytesIO()
     wb.save(buf)

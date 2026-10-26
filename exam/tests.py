@@ -1253,7 +1253,22 @@ class HrResultsTests(Base):
         self.assertEqual(self.client.get(reverse("results")).status_code, 403)
         self.assertEqual(self.client.get(reverse("result_detail", args=[attempt.pk])).status_code, 403)
         self.assertEqual(self.client.get(reverse("result_photo", args=[attempt.pk])).status_code, 403)
-        self.assertEqual(self.client.get(reverse("results_export")).status_code, 403)
+        # Excel: HR ҳам юклайди, лекин расм ва экспертлар устунисиз
+        from io import BytesIO
+        from openpyxl import load_workbook
+        self.assertContains(self.client.get(reverse("hr_results")), reverse("results_export"))
+        r = self.client.get(reverse("results_export"))
+        self.assertEqual(r.status_code, 200)
+        rows = list(load_workbook(BytesIO(r.content)).active.iter_rows(values_only=True))
+        self.assertNotIn("Расм", rows[0])
+        self.assertNotIn("Экспертлар", rows[0])
+        self.assertIn("Якуний (100)", rows[0])
+        self.assertEqual(rows[1][1], "Karimov")
+        # Суперадмин файлида бу устунлар бор
+        self.client.force_login(self.admin)
+        head = next(load_workbook(BytesIO(self.client.get(reverse("results_export")).content)).active.iter_rows(values_only=True))
+        self.assertIn("Расм", head)
+        self.assertIn("Экспертлар", head)
 
 
 class CandidateListFilterTests(Base):

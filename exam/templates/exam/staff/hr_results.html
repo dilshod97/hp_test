@@ -3,7 +3,8 @@
 {% block title %}Натижалар{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>Натижалар</h1>
-  <div class="sub">Тест топширган номзодларнинг баллари. Номзод расми ва жавоблари фақат суперадминга кўринади.</div></div></div>
+  <div class="sub">Тест топширган номзодларнинг баллари. Номзод расми ва жавоблари фақат суперадминга кўринади.</div></div>
+  <div class="actions"><a class="btn secondary" href="{% url 'results_export' %}?{{ request.GET.urlencode }}">{% icon "download" %} Excel'га юклаш</a></div></div>
 <div class="card flush">
   <form class="toolbar" method="get">
     <select name="test" onchange="this.form.submit()"><option value="">Барча тестлар</option>
