@@ -682,7 +682,7 @@ def _result_columns(rows):
     cols["defense"] = any(r["s"]["defense_max"] for r in rows)
     if not rows:
         cols.update(logic=True, test=True, practical=True)
-    cols["span"] = 4 + sum(1 for k, v in cols.items() if v is True)
+    cols["span"] = 5 + sum(1 for k, v in cols.items() if v is True)
     return cols
 
 

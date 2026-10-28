@@ -30,12 +30,14 @@
     {% for p in presets %}<a class="chip{% if p.active %} on{% endif %}" href="?{{ p.query }}">{{ p.label }}</a>{% endfor %}
     {% if dated %}<a class="chip clear" href="?{% for k, v in params.items %}{% if k != 'from' and k != 'to' %}{{ k }}={{ v|urlencode }}&amp;{% endif %}{% endfor %}">✕ Барча саналар</a>{% endif %}
   </div>
+  <div class="list-total">Жами: <b>{{ rows|length }}</b> та</div>
   <div class="table-wrap">
   <table class="sortable">
-    <thead><tr><th>Номзод</th><th>Тест</th><th>Ҳолат</th>{% if cols.logic %}<th class="num">Мантиқий тест</th>{% endif %}{% if cols.test %}<th class="num">Касбий тест</th>{% endif %}{% if cols.practical %}<th class="num">Ёзма амалий</th>{% endif %}{% if cols.interview %}<th class="num">Суҳбат</th>{% endif %}{% if cols.defense %}<th class="num">Ҳимоя</th>{% endif %}<th class="num">Якуний балл</th></tr></thead>
+    <thead><tr><th class="rownum nosort">№</th><th>Номзод</th><th>Тест</th><th>Ҳолат</th>{% if cols.logic %}<th class="num">Мантиқий тест</th>{% endif %}{% if cols.test %}<th class="num">Касбий тест</th>{% endif %}{% if cols.practical %}<th class="num">Ёзма амалий</th>{% endif %}{% if cols.interview %}<th class="num">Суҳбат</th>{% endif %}{% if cols.defense %}<th class="num">Ҳимоя</th>{% endif %}<th class="num">Якуний балл</th></tr></thead>
     <tbody>
     {% for row in rows %}{% with a=row.a s=row.s %}
     <tr onclick="location.href='{% url 'result_detail' a.pk %}'" style="cursor:pointer">
+      <td class="rownum">{{ forloop.counter }}</td>
       <td data-v="{{ a.candidate.full_name }}"><div class="row" style="gap:12px;flex-wrap:nowrap">
         {% if a.photo %}<img src="{% url 'result_photo' a.pk %}" alt="" class="avatar" loading="lazy">{% else %}<span class="avatar none" title="{{ a.get_photo_status_display }}">{% icon "id" %}</span>{% endif %}
         <div><a class="table-link" href="{% url 'result_detail' a.pk %}">{{ a.candidate.full_name }}</a><div class="muted small">{{ a.candidate.birth_display }} · <span class="mono">{{ a.code }}</span></div></div>

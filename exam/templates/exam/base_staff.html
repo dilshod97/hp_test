@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Тест тизими{% endblock %} — Танлов тизими</title>
-<link rel="stylesheet" href="{% static 'exam/style.css' %}?v=9">
+<link rel="stylesheet" href="{% static 'exam/style.css' %}?v=10">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231d4ed8'/%3E%3Cpath d='M16 8 4 14l12 6 12-6z' fill='white'/%3E%3C/svg%3E">
 {% block head %}{% endblock %}
 </head>
@@ -90,6 +90,7 @@
 document.querySelectorAll('table.sortable').forEach(table => {
   const heads = Array.from(table.querySelectorAll('thead th'));
   heads.forEach((th, col) => {
+    if (th.classList.contains('nosort')) return;
     th.classList.add('sort-th');
     th.title = 'Тартиблаш';
     th.addEventListener('click', () => {
@@ -105,7 +106,7 @@ document.querySelectorAll('table.sortable').forEach(table => {
         const d = numeric ? (parseFloat(x || -1) - parseFloat(y || -1)) : x.localeCompare(y, 'uz');
         return desc ? -d : d;
       });
-      rows.forEach(r => body.appendChild(r));
+      rows.forEach((r, i) => { body.appendChild(r); const n = r.querySelector('td.rownum'); if (n) n.textContent = i + 1; });
     });
   });
 });

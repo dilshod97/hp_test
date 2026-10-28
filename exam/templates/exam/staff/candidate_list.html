@@ -42,12 +42,14 @@
     <a href="{% url 'candidate_list' %}" class="nowrap"><b>Барчасини кўрсатиш</b></a>
   </div>
   {% endif %}
+  <div class="list-total">Жами: <b>{{ rows|length }}</b> та</div>
   <div class="table-wrap"><table>
-    <thead><tr><th style="width:36px"><input type="checkbox" id="check-all" title="Ҳаммасини белгилаш"></th><th>Ф.И.Ш.</th><th>Туғилган</th><th>Тест</th><th>Логин</th><th>Парол</th><th>Ҳолат</th><th></th></tr></thead>
+    <thead><tr><th style="width:36px"><input type="checkbox" id="check-all" title="Ҳаммасини белгилаш"></th><th class="rownum">№</th><th>Ф.И.Ш.</th><th>Туғилган</th><th>Тест</th><th>Логин</th><th>Парол</th><th>Ҳолат</th><th></th></tr></thead>
     <tbody>
     {% for row in rows %}{% with x=row.x %}
     <tr{% if new_id == x.pk|stringformat:'s' %} style="background:#f0fdf4"{% endif %}>
       <td>{% if not row.attempt or row.attempt.status == 'in_progress' %}<input type="checkbox" name="id" value="{{ x.pk }}" form="print-form" class="pick-row">{% else %}<span title="Тестни топширган — варақча керак эмас" class="muted">—</span>{% endif %}</td>
+      <td class="rownum">{{ forloop.counter }}</td>
       <td><b>{{ x.candidate.full_name }}</b></td>
       <td class="nowrap">{{ x.candidate.birth_display }}</td>
       <td class="small">{% if not row.attempt %}<a href="{% url 'assignment_edit' x.pk %}?back={{ request.GET.urlencode|urlencode }}" title="Тестни ўзгартириш" style="color:inherit;border-bottom:1px dashed var(--border-strong)">{{ x.test.title }}</a>{% else %}{{ x.test.title }}{% endif %}{% if row.attempt and row.attempt.test_id != x.test_id %} <span class="badge plain" title="Номзод тестни рус тилида топширмоқда">рус тилида</span>{% endif %}{% if not x.test.is_active %} <span class="badge off">нофаол</span>{% endif %}</td>
@@ -64,7 +66,7 @@
         {% endif %}
       </td>
     </tr>
-    {% endwith %}{% empty %}<tr><td colspan="8"><div class="empty">{% icon "id" %}<div>Рўйхат бўш. «Номзод қўшиш» ёки «Excel'дан юклаш» ни босинг.</div></div></td></tr>{% endfor %}
+    {% endwith %}{% empty %}<tr><td colspan="9"><div class="empty">{% icon "id" %}<div>Рўйхат бўш. «Номзод қўшиш» ёки «Excel'дан юклаш» ни босинг.</div></div></td></tr>{% endfor %}
     </tbody>
   </table></div>
 </div>
