@@ -5,7 +5,7 @@ from io import BytesIO
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.db import transaction
-from django.db.models import Count, Max, Prefetch, Q
+from django.db.models import Count, F, Max, Prefetch, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -483,7 +483,8 @@ def check_list(request):
     Attempt.finish_abandoned()
     reviews = (
         Review.objects.filter(checker=request.user).select_related("attempt__test")
-        .order_by("submitted_at", "assigned_at")
+        # Кутилмоқда (submitted_at NULL) аввал, кейин топширилганлар — энг янгиси юқорида
+        .order_by(F("submitted_at").desc(nulls_first=True), "assigned_at")
     )
     return render(request, "exam/staff/check_list.html", {"reviews": reviews})
 
