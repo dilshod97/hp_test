@@ -1,6 +1,7 @@
 """Xodimlar sahifalari: test qo'shuvchi, tekshiruvchi va superadmin."""
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
+from urllib.parse import quote
 
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
@@ -10,6 +11,7 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from . import grading
@@ -993,6 +995,61 @@ def result_detail(request, pk):
         "interview": interview,
         "letters": OPTION_LETTERS,
     })
+
+
+@role_required("is_superadmin", "is_hr")
+def result_pdf(request, pk):
+    """Номзод натижаси PDF: тестдан фақат калит ва (хато бўлса) танланган вариант, ёзма ишлар тўлиқ.
+    Экспертлар исми чиқмайди (HR ҳам юклайди)."""
+    from weasyprint import HTML
+
+    attempt = get_object_or_404(Attempt.objects.select_related("candidate", "test"), pk=pk)
+    if attempt.status == Attempt.Status.IN_PROGRESS and not request.user.is_superadmin:
+        raise Http404
+    reviews = list(attempt.reviews.filter(submitted_at__isnull=False).order_by("round", "id"))
+    items = {(i.review_id, i.answer_id): i for i in ReviewAnswer.objects.filter(review__in=reviews)}
+    answers = (
+        attempt.answers.select_related("question__block", "selected_option")
+        .prefetch_related("question__options", "question__criteria")
+        .order_by("question__block__order", "question__block_id", "question__order", "question_id")
+    )
+    blocks = []
+    for a in answers:
+        block = a.question.block
+        if not blocks or blocks[-1]["block"] != block:
+            blocks.append({"block": block, "choice": block.kind in (Kind.LOGIC, Kind.TEST), "rows": [], "right": 0})
+        row = {"a": a}
+        if a.question.qtype == "choice":
+            opts = list(a.question.options.all())
+            row["options"] = [
+                {"letter": OPTION_LETTERS[i], "text": o.text, "key": o.pk == a.question.correct_option_id,
+                 "chosen": o.pk == a.selected_option_id}
+                for i, o in enumerate(opts) if o.pk in (a.question.correct_option_id, a.selected_option_id)
+            ]
+            row["right"] = bool(a.selected_option_id) and a.selected_option_id == a.question.correct_option_id
+            blocks[-1]["right"] += row["right"]
+        else:
+            per = [items.get((r.pk, a.pk)) for r in reviews]
+            row["criteria"] = [
+                {"text": text, "max": mx, "values": [p.scores[i] if p and i < len(p.scores) else None for p in per]}
+                for i, (text, mx) in enumerate(grading.answer_scale(a))
+            ]
+            row["totals"] = [p.total if p else None for p in per]
+            row["comments"] = [p.comment for p in per if p and p.comment]
+        blocks[-1]["rows"].append(row)
+
+    counts = {kind: {"right": sum(b["right"] for b in blocks if b["block"].kind == kind),
+                     "total": sum(len(b["rows"]) for b in blocks if b["block"].kind == kind)}
+              for kind in (Kind.LOGIC, Kind.TEST)}
+    html = render(request, "exam/staff/result_pdf.html", {
+        "attempt": attempt, "blocks": blocks, "reviews": reviews, "counts": counts,
+        "summary": grading.summary(attempt), "now": timezone.localtime(),
+    }).content.decode()
+    pdf = HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
+    name = slugify(attempt.candidate.full_name, allow_unicode=True) or "natija"
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(name)}_{attempt.code}.pdf"
+    return resp
 
 
 @role_required("is_superadmin")

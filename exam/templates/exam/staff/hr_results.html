@@ -21,7 +21,7 @@
   </div>
   <div class="list-total">Жами: <b>{{ rows|length }}</b> та</div>
   <div class="table-wrap"><table class="sortable">
-    <thead><tr><th class="rownum nosort">№</th><th>Номзод</th><th>Тест</th><th>Ҳолат</th>{% if cols.logic %}<th class="num">Мантиқий тест</th>{% endif %}{% if cols.test %}<th class="num">Касбий тест</th>{% endif %}{% if cols.practical %}<th class="num">Ёзма амалий</th>{% endif %}{% if cols.interview %}<th class="num">Суҳбат</th>{% endif %}{% if cols.defense %}<th class="num">Ҳимоя</th>{% endif %}<th class="num">Якуний балл</th></tr></thead>
+    <thead><tr><th class="rownum nosort">№</th><th>Номзод</th><th>Тест</th><th>Ҳолат</th>{% if cols.logic %}<th class="num">Мантиқий тест</th>{% endif %}{% if cols.test %}<th class="num">Касбий тест</th>{% endif %}{% if cols.practical %}<th class="num">Ёзма амалий</th>{% endif %}{% if cols.interview %}<th class="num">Суҳбат</th>{% endif %}{% if cols.defense %}<th class="num">Ҳимоя</th>{% endif %}<th class="num">Якуний балл</th><th class="nosort"></th></tr></thead>
     <tbody>
     {% for row in rows %}{% with a=row.a s=row.s %}
     <tr>
@@ -35,9 +35,10 @@
       {% if cols.interview %}<td class="num" data-v="{{ s.interview|sortv }}">{% include "exam/staff/_part_cell.html" with p=s.interview %}</td>{% endif %}
       {% if cols.defense %}<td class="num" data-v="{{ s.defense|sortnum }}">{% if s.defense_max %}{{ s.defense|num }} <span class="muted">/ {{ s.defense_max|num }}</span>{% else %}—{% endif %}</td>{% endif %}
       <td class="num" data-v="{% if s.final is not None %}{{ s.final|sortnum }}{% else %}{{ s.partial|sortnum }}{% endif %}"><b style="font-size:16px">{{ s.final|num }}</b>{% if s.final is not None %} <span class="muted">/ 100</span>{% endif %}</td>
+      <td>{% if a.status != 'in_progress' %}<a class="btn ghost sm" href="{% url 'result_pdf' a.pk %}" title="Натижани PDF шаклида юклаш">{% icon "download" %} PDF</a>{% endif %}</td>
     </tr>
     {% endwith %}{% empty %}
-    <tr><td colspan="{{ cols.span }}"><div class="empty">{% icon "inbox" %}<div>Ҳали топширилган тест йўқ</div></div></td></tr>
+    <tr><td colspan="{{ cols.span|add:1 }}"><div class="empty">{% icon "inbox" %}<div>Ҳали топширилган тест йўқ</div></div></td></tr>
     {% endfor %}
     </tbody>
   </table></div>

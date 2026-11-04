@@ -70,6 +70,7 @@ urlpatterns = [
     path("staff/results/export/", s.results_export, name="results_export"),
     path("staff/results/<int:pk>/", s.result_detail, name="result_detail"),
     path("staff/results/<int:pk>/action/", s.result_action, name="result_action"),
+    path("staff/results/<int:pk>/pdf/", s.result_pdf, name="result_pdf"),
     path("staff/results/<int:pk>/photo.jpg", s.result_photo, name="result_photo"),
 
     path("staff/upload-image/", s.upload_image, name="upload_image"),

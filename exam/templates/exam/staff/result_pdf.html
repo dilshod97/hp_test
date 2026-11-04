@@ -1,0 +1,103 @@
+{% load exam_tags %}<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><title>{{ attempt.candidate.full_name }} — {{ attempt.code }}</title>
+<style>
+@page { size: A4; margin: 14mm 13mm 14mm 13mm;
+  @bottom-right { content: counter(page) " / " counter(pages); font-size: 8pt; color: #888; }
+  @bottom-left { content: "{{ attempt.candidate.full_name }} · {{ attempt.code }}"; font-size: 8pt; color: #888; } }
+* { box-sizing: border-box; }
+body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 8.6pt; line-height: 1.35; color: #111; margin: 0; }
+h1 { font-size: 15pt; margin: 0 0 3px; }
+h2 { font-size: 10.5pt; margin: 14px 0 6px; padding: 4px 8px; background: #eef2ff; border-left: 3px solid #2346d6; }
+h2 .r { float: right; font-weight: normal; color: #333; }
+.meta { color: #444; margin-bottom: 8px; }
+.meta b { color: #111; }
+table { border-collapse: collapse; width: 100%; }
+.sum td, .sum th { border: 1px solid #ccd; padding: 4px 6px; text-align: center; }
+.sum th { background: #f3f4f8; font-weight: 600; font-size: 8pt; }
+.sum .final { font-weight: 700; font-size: 11pt; color: #2346d6; }
+.q { padding: 4px 0 5px; border-bottom: 1px solid #e5e7eb; page-break-inside: avoid; }
+.q .t { font-weight: 600; }
+.q .t p { display: inline; margin: 0; }
+.q .t img { max-width: 60%; max-height: 120px; }
+.q .t table { width: auto; font-weight: normal; }
+.q .t td, .q .t th { border: 1px solid #ccc; padding: 1px 4px; }
+.opt { margin: 1px 0 0 14px; }
+.opt.key { color: #11692f; }
+.opt.bad { color: #b42318; }
+.mark { font-weight: 700; }
+.ok { color: #11692f; font-weight: 700; }
+.no { color: #b42318; font-weight: 700; }
+.task { margin-top: 8px; page-break-inside: auto; }
+.task .head { font-weight: 700; font-size: 9.5pt; }
+.task .head .r { float: right; }
+.cond { color: #555; font-size: 7.8pt; margin: 2px 0 4px; }
+.cond p { margin: 0 0 2px; }
+.ans { border: 1px solid #d6d9e0; background: #fafbfc; padding: 5px 7px; margin: 3px 0; }
+.ans p { margin: 0 0 3px; }
+.ans table { width: auto; }
+.ans td, .ans th { border: 1px solid #ccc; padding: 1px 4px; }
+.crit td, .crit th { border: 1px solid #dde; padding: 2px 5px; font-size: 7.8pt; }
+.crit th { background: #f3f4f8; }
+.crit .n { text-align: center; width: 46px; }
+.muted { color: #777; }
+</style></head>
+<body>
+<h1>{{ attempt.candidate.full_name }}</h1>
+<div class="meta">
+  Туғилган сана: <b>{{ attempt.candidate.birth_display }}</b> · Аноним код: <b>{{ attempt.code }}</b> ·
+  Тест: <b>{{ attempt.test.title }}</b><br>
+  Бошлаган: <b>{{ attempt.started_at|date:"d.m.Y H:i" }}</b>{% if attempt.finished_at %} · Топширган: <b>{{ attempt.finished_at|date:"d.m.Y H:i" }}</b>{% endif %} ·
+  Ҳолат: <b>{{ attempt.get_status_display }}</b>
+</div>
+
+<table class="sum"><tr>
+  {% if summary.logic and summary.logic.weight %}<th>Мантиқий тест</th>{% endif %}
+  {% if summary.test and summary.test.weight %}<th>Касбий тест</th>{% endif %}
+  {% if summary.practical and summary.practical.weight %}<th>Ёзма амалий</th>{% endif %}
+  {% if summary.interview and summary.interview.weight %}<th>Суҳбат</th>{% endif %}
+  {% if summary.defense_max %}<th>Ҳимоя</th>{% endif %}
+  <th>Якуний балл</th>
+</tr><tr>
+  {% if summary.logic and summary.logic.weight %}<td>{{ summary.logic.weighted|num }} / {{ summary.logic.weight|num }}<br><span class="muted">{{ counts.logic.total }} тадан {{ counts.logic.right }} та тўғри</span></td>{% endif %}
+  {% if summary.test and summary.test.weight %}<td>{{ summary.test.weighted|num }} / {{ summary.test.weight|num }}<br><span class="muted">{{ counts.test.total }} тадан {{ counts.test.right }} та тўғри</span></td>{% endif %}
+  {% if summary.practical and summary.practical.weight %}<td>{{ summary.practical.weighted|num }} / {{ summary.practical.weight|num }}<br><span class="muted">{% if summary.practical.score is None %}текширилмоқда{% else %}мезон бали {{ summary.practical.score|num }} / {{ summary.practical.max|num }}{% endif %}</span></td>{% endif %}
+  {% if summary.interview and summary.interview.weight %}<td>{{ summary.interview.weighted|num }} / {{ summary.interview.weight|num }}</td>{% endif %}
+  {% if summary.defense_max %}<td>{{ summary.defense|num }} / {{ summary.defense_max|num }}</td>{% endif %}
+  <td class="final">{% if summary.final is not None %}{{ summary.final|num }} / 100{% else %}{{ summary.partial|num }}<br><span class="muted" style="font-size:7.5pt;font-weight:normal">ҳамма қисм киритилмаган</span>{% endif %}</td>
+</tr></table>
+
+{% for b in blocks %}
+<h2>{{ forloop.counter }}. {{ b.block.title }}{% if b.choice %}<span class="r">{{ b.rows|length }} тадан {{ b.right }} та тўғри</span>{% endif %}</h2>
+{% if b.choice %}
+  <div class="muted" style="font-size:7.5pt;margin-bottom:2px">Тўғри жавоб берилган саволда фақат тўғри вариант, хато бўлса — тўғри вариант ва номзод танлагани кўрсатилган.</div>
+  {% for row in b.rows %}{% with a=row.a %}
+  <div class="q">
+    <div class="t">{{ forloop.counter }}. {% if row.right %}<span class="ok">✓</span>{% else %}<span class="no">✗</span>{% endif %} {{ a.question.text|safe }}</div>
+    {% for o in row.options %}
+    <div class="opt {% if o.key %}key{% else %}bad{% endif %}"><span class="mark">{{ o.letter }})</span> {{ o.text }}{% if o.key and o.chosen %} — тўғри, номзод танлаган{% elif o.key %} — тўғри жавоб{% elif o.chosen %} — номзод танлаган{% endif %}</div>
+    {% endfor %}
+    {% if not a.selected_option_id %}<div class="opt bad">Номзод жавоб танламаган</div>{% endif %}
+  </div>
+  {% endwith %}{% endfor %}
+{% else %}
+  {% for row in b.rows %}{% with a=row.a %}
+  <div class="task">
+    <div class="head">{{ forloop.counter }}. {{ a.question.title|default:"Топшириқ" }}<span class="r">{{ a.score|num }} / {{ a.question.max_score|num }} балл</span></div>
+    <div class="cond">{{ a.question.text|safe }}</div>
+    <div class="ans">{% if a.question.qtype == 'choice' %}{% for o in row.options %}<div class="opt {% if o.key %}key{% else %}bad{% endif %}">{{ o.letter }}) {{ o.text }}{% if o.key %} — тўғри{% endif %}{% if o.chosen %} — номзод{% endif %}</div>{% endfor %}{% elif a.text_answer %}{{ a.text_answer|safe }}{% else %}<i class="muted">Жавоб ёзилмаган</i>{% endif %}</div>
+    {% if row.criteria and reviews %}
+    <table class="crit">
+      <tr><th style="text-align:left">Мезон</th>{% for r in reviews %}<th class="n">Эксп. {{ forloop.counter }}</th>{% endfor %}</tr>
+      {% for c in row.criteria %}<tr><td>{{ c.text }} <span class="muted">({{ c.max|num }})</span></td>{% for v in c.values %}<td class="n">{{ v|num }}</td>{% endfor %}</tr>{% endfor %}
+      <tr><td><b>Жами</b></td>{% for t in row.totals %}<td class="n"><b>{{ t|num }}</b></td>{% endfor %}</tr>
+    </table>
+    {% for c in row.comments %}<div class="muted" style="font-size:7.5pt">Эксперт изоҳи: {{ c }}</div>{% endfor %}
+    {% elif a.auto_graded %}<div class="muted" style="font-size:7.5pt">Жавоб берилмаган — автоматик 0.</div>
+    {% elif row.criteria %}<div class="muted" style="font-size:7.5pt">Эксперт баҳоси ҳали киритилмаган.</div>{% endif %}
+  </div>
+  {% endwith %}{% endfor %}
+{% endif %}
+{% endfor %}
+
+<div class="muted" style="margin-top:12px;font-size:7.5pt">Танлов тизими · {{ now|date:"d.m.Y H:i" }} ҳолатига</div>
+</body></html>

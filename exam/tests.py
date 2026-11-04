@@ -1275,6 +1275,55 @@ class HrResultsTests(Base):
         self.assertIn("Экспертлар", head)
 
 
+class ResultPdfTests(Base):
+    def html_of(self, pk):
+        """PDF ўрнига WeasyPrint'га берилган HTML'ни қайтаради."""
+        from unittest import mock
+        with mock.patch("weasyprint.HTML") as HTML:
+            HTML.return_value.write_pdf.return_value = b"%PDF-1.7 test"
+            r = self.client.get(reverse("result_pdf", args=[pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "application/pdf")
+        self.assertIn(".pdf", r["Content-Disposition"])
+        return HTML.call_args.kwargs["string"]
+
+    def test_compact_options_and_written_work(self):
+        attempt = self.take_test(logic_correct=False)
+        checker = attempt.reviews.first().checker
+        self.grade(checker, attempt, {self.q_ma1: [2] * 5, self.q_ma2: [1] * 5})
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse("result_detail", args=[attempt.pk])), reverse("result_pdf", args=[attempt.pk]))
+        html = self.html_of(attempt.pk)
+        # 1-савол хато (3 танланган, калит 4): иккала вариант, қолганлари йўқ
+        self.assertIn("3 — номзод танлаган", html)
+        self.assertIn("4 — тўғри жавоб", html)
+        self.assertNotIn("5 —", html)
+        self.assertNotIn("Б) 5", html)
+        # 2-саволга жавоб берилмаган: фақат калит
+        self.assertIn("Номзод жавоб танламаган", html)
+        # Ёзма ишлар, мезонлар, эксперт исми чиқмайди
+        self.assertIn("Javob 475", html)
+        self.assertIn("Vazifa МА 01", html)
+        self.assertIn("Эксп. 1", html)
+        self.assertNotIn(checker.username, html.replace("class=", "").replace(f"izoh-{checker.username}", ""))
+        self.assertIn(f"izoh-{checker.username}", html)  # изоҳ матни чиқади, эксперт исми эмас
+        self.assertIn("Karimov", html)
+
+    def test_correct_answer_shows_only_key_and_hr_access(self):
+        attempt = self.take_test(logic_correct=True)
+        hr = User.objects.create_user("hr", password="x" * 10, role=User.Role.HR)
+        self.client.force_login(hr)
+        self.assertContains(self.client.get(reverse("hr_results")), reverse("result_pdf", args=[attempt.pk]))
+        html = self.html_of(attempt.pk)
+        self.assertIn("4 — тўғри, номзод танлаган", html)
+        self.assertNotIn("3 —", html)
+        # Ечилаётган иш HR учун ёпиқ, эксперт учун умуман ёпиқ
+        Attempt.objects.filter(pk=attempt.pk).update(status=Attempt.Status.IN_PROGRESS)
+        self.assertEqual(self.client.get(reverse("result_pdf", args=[attempt.pk])).status_code, 404)
+        self.client.force_login(self.c1)
+        self.assertEqual(self.client.get(reverse("result_pdf", args=[attempt.pk])).status_code, 403)
+
+
 class CandidateListFilterTests(Base):
     def test_edit_returns_to_same_view_and_filter_is_visible(self):
         self.client.force_login(self.admin)
