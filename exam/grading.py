@@ -246,8 +246,10 @@ def summary(attempt):
             continue
         ratio = part.get("ratio")
         if ratio is None or (attempt.graded_at and attempt.graded_at < EQUAL_SHARE_SINCE):
-            ratio = part["score"] / part["max"]
-        part["weighted"] = (d(weights[key]) * ratio).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+            weighted = d(weights[key]) * part["score"] / part["max"]  # эски усул, айнан аввалги яхлитлаш билан
+        else:
+            weighted = d(weights[key]) * ratio
+        part["weighted"] = weighted.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
         final += part["weighted"]
     if test.weight_defense:
         if attempt.defense_score is None:

@@ -1342,6 +1342,9 @@ class EqualTaskWeightTests(Base):
         Attempt.objects.filter(pk=attempt.pk).update(graded_at=grading.EQUAL_SHARE_SINCE - timedelta(days=1))
         attempt.refresh_from_db()
         self.assertEqual(grading.summary(attempt)["practical"]["weighted"], Decimal("39.72"))
+        # Яхлитлаш аввалгидек: 30 × 7/48 = 4,375 → 4,38 (4,37 эмас)
+        part = {"score": Decimal(7), "max": Decimal(48)}
+        self.assertEqual((Decimal(30) * part["score"] / part["max"]).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP"), Decimal("4.38"))
 
 
 class CandidateListFilterTests(Base):
