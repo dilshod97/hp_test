@@ -9,6 +9,7 @@ Baholash qoidalari (tanlov materiallaridagi "Қўллаш ва баҳолаш т
   medianasi olinadi. Uchinchisiz holatda ikki baho o'rtachasi olinadi.
 * Yakuniy shkala: amaliy 55 × ball/maks + mantiqiy 15 × ball/maks + suhbat 15 × ball/maks + himoya (0–15).
 """
+from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import ROUND_HALF_UP, Decimal
 from statistics import median
 
@@ -19,6 +20,9 @@ from .models import Attempt, Kind, Review, ReviewAnswer, Test
 
 THIRD_REVIEW_DIFF_RATIO = Decimal("0.15")
 TWO_PLACES = Decimal("0.01")
+# Шу пайтдан олдин «Баҳоланди» бўлган натижалар эски усулда қолади (раҳбариятга берилган рақамлар
+# ўзгармасин): қисм бали = жами балл / жами макс. Кейингилари — ҳар савол тенг улуш (масалан, 6 / 30).
+EQUAL_SHARE_SINCE = datetime(2026, 11, 4, 20, 30, tzinfo=dt_timezone(timedelta(hours=5)))
 
 LOGIC_BANDS = [  # 20 ballik shkala bo'yicha
     (7, "Сезиларли қийинчилик"),
@@ -241,7 +245,7 @@ def summary(attempt):
             part["weighted"] = None
             continue
         ratio = part.get("ratio")
-        if ratio is None:
+        if ratio is None or (attempt.graded_at and attempt.graded_at < EQUAL_SHARE_SINCE):
             ratio = part["score"] / part["max"]
         part["weighted"] = (d(weights[key]) * ratio).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
         final += part["weighted"]

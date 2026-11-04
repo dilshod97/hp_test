@@ -1338,6 +1338,10 @@ class EqualTaskWeightTests(Base):
         self.assertEqual((p["score"], p["max"]), (13, 18))  # хом мезон бали ўзгармайди
         # (5/10 + 8/8) / 2 = 0,75 → 55 × 0,75 = 41,25 (эски усулда 55 × 13/18 = 39,72 эди)
         self.assertEqual(p["weighted"], Decimal("41.25"))
+        # Ўзгаришдан олдин баҳоланган натижа эски усулда қолади
+        Attempt.objects.filter(pk=attempt.pk).update(graded_at=grading.EQUAL_SHARE_SINCE - timedelta(days=1))
+        attempt.refresh_from_db()
+        self.assertEqual(grading.summary(attempt)["practical"]["weighted"], Decimal("39.72"))
 
 
 class CandidateListFilterTests(Base):
