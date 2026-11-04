@@ -1324,6 +1324,22 @@ class ResultPdfTests(Base):
         self.assertEqual(self.client.get(reverse("result_pdf", args=[attempt.pk])).status_code, 403)
 
 
+class EqualTaskWeightTests(Base):
+    review_mode = Test.ReviewMode.SINGLE
+
+    def test_each_written_task_has_equal_share(self):
+        # МА 02 — 4 мезон (8 балл), МА 01 — 5 мезон (10 балл); иккаласи ҳам ёзма қисмнинг тенг улуши
+        self.q_ma2.criteria.order_by("-order").first().delete()
+        Question.objects.filter(pk=self.q_ma2.pk).update(max_score=8)
+        attempt = self.take_test()
+        self.grade(attempt.reviews.first().checker, attempt, {self.q_ma1: [1] * 5, self.q_ma2: [2] * 4})
+        attempt.refresh_from_db()
+        p = grading.summary(attempt)["practical"]
+        self.assertEqual((p["score"], p["max"]), (13, 18))  # хом мезон бали ўзгармайди
+        # (5/10 + 8/8) / 2 = 0,75 → 55 × 0,75 = 41,25 (эски усулда 55 × 13/18 = 39,72 эди)
+        self.assertEqual(p["weighted"], Decimal("41.25"))
+
+
 class CandidateListFilterTests(Base):
     def test_edit_returns_to_same_view_and_filter_is_visible(self):
         self.client.force_login(self.admin)

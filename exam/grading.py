@@ -183,7 +183,13 @@ def _part(attempt, kind):
     mx = sum(d(a.question.max_score) for a in answers)
     scores = [a.score for a in answers]
     score = None if any(s is None for s in scores) else sum(d(s) for s in scores)
-    return {"score": score, "max": mx}
+    # Ҳар савол қисм вазнига тенг ҳисса қўшади (масалан, 5 та ёзма × 6 = 30), савол максимуми
+    # 10 ёки 8 бўлишидан қатъи назар: улуш = савол бўйича (балл / макс) нинг ўртачаси.
+    scored = [a for a in answers if a.question.max_score]
+    ratio = None
+    if score is not None and scored:
+        ratio = sum(d(a.score) / d(a.question.max_score) for a in scored) / len(scored)
+    return {"score": score, "max": mx, "ratio": ratio}
 
 
 def interview_part(attempt):
@@ -234,7 +240,10 @@ def summary(attempt):
             complete = False
             part["weighted"] = None
             continue
-        part["weighted"] = (d(weights[key]) * part["score"] / part["max"]).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+        ratio = part.get("ratio")
+        if ratio is None:
+            ratio = part["score"] / part["max"]
+        part["weighted"] = (d(weights[key]) * ratio).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
         final += part["weighted"]
     if test.weight_defense:
         if attempt.defense_score is None:
