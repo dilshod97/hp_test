@@ -60,7 +60,7 @@ table { border-collapse: collapse; width: 100%; }
 </tr><tr>
   {% if summary.logic and summary.logic.weight %}<td>{{ summary.logic.weighted|num }} / {{ summary.logic.weight|num }}<br><span class="muted">{{ counts.logic.total }} тадан {{ counts.logic.right }} та тўғри</span></td>{% endif %}
   {% if summary.test and summary.test.weight %}<td>{{ summary.test.weighted|num }} / {{ summary.test.weight|num }}<br><span class="muted">{{ counts.test.total }} тадан {{ counts.test.right }} та тўғри</span></td>{% endif %}
-  {% if summary.practical and summary.practical.weight %}<td>{{ summary.practical.weighted|num }} / {{ summary.practical.weight|num }}<br><span class="muted">{% if summary.practical.score is None %}текширилмоқда{% else %}мезон бали {{ summary.practical.score|num }} / {{ summary.practical.max|num }}{% endif %}</span></td>{% endif %}
+  {% if summary.practical and summary.practical.weight %}<td>{{ summary.practical.weighted|num }} / {{ summary.practical.weight|num }}{% if summary.practical.score is None %}<br><span class="muted">текширилмоқда</span>{% endif %}</td>{% endif %}
   {% if summary.interview and summary.interview.weight %}<td>{{ summary.interview.weighted|num }} / {{ summary.interview.weight|num }}</td>{% endif %}
   {% if summary.defense_max %}<td>{{ summary.defense|num }} / {{ summary.defense_max|num }}</td>{% endif %}
   <td class="final">{% if summary.final is not None %}{{ summary.final|num }} / 100{% else %}{{ summary.partial|num }}<br><span class="muted" style="font-size:7.5pt;font-weight:normal">ҳамма қисм киритилмаган</span>{% endif %}</td>
